@@ -30,7 +30,7 @@ cdef class CObjPtr(object):
         self._c_base_type = 'void'
         self._c_esize = 0
         self.__mddict__ = {}
-        self.__mdict__ = self.__mddict__.copy()
+        self.__mdict__ = {}
     def __init__(self, nelms=1, vals=None, **m):
         if nelms > 0:
             self.alloc_entity(nelms, vals, **m)
@@ -55,8 +55,8 @@ cdef class CObjPtr(object):
                 ref.__setattr__(k, val[k])
         elif isinstance(val, self.__class__):
             ref2 = val
-            for k in ref2.__mdict__:
-                ref.__setattr__(k, ref2.__mdict__[k])
+            for k in ref2.__mddict__:
+                ref.__setattr__(k, ref2.__getattr__(k))
         else:
             raise TypeError(
                 'val must be dict of member or instance of %s class'
@@ -95,7 +95,7 @@ cdef class CObjPtr(object):
         self._c_ptr = tmp_ptr
     def _deallocator(self):
         PyMem_Free(self._c_ptr)
-    def value(self): 
+    def values(self): 
         if self.boundstate == _boundstate_unbound:
             raise TypeError('Not bound yet')
         md = {}
@@ -109,32 +109,19 @@ cdef class CObjPtr(object):
         if ptr is NULL:
             raise ValueError('cannot bind NULL pointer')
         else:
-            if self.__class__.__name__ != 'CObjPtr':
-                raise NotImplementedError()
+            #if self.__class__.__name__ != 'CObjPtr':
+            #    raise NotImplementedError()
             self._c_ptr = ptr
             self.boundstate = _boundstate_bound
             # there is no way to know how many elements to access safely ...
             self.nelms  = 0
             del self.elmlist[0:]
-            # sample code
-            # for each struct members, binding each object instance
-            #   # self.__mdict__['m_name'] is str
-            #   if (<spam.foo_t*>ptr).name is NULL
-            #       self.__mdict__['m_name'] = None
-            #   else:
-            #       self.__mdict__['m_name'] = (<spam.foo_t*>ptr).name
-            #   # self.__mdict['m_barp'] is bar_t, spam.bar_t* wrapped class.
-            #   if (<spam.foo_t*>ptr).barp is NULL
-            #       self.__mdict__['m_varp'] = None
-            #   else:
-            #       self.__mdict__['m_barp'] = bar_t(0)
-            #       self.__mdict__['m_barp'].bind((<spam.foo_t*>ptr).barp)
     cpdef unbind(self):
         if self._c_ptr is not NULL:
             if self.boundstate == _boundstate_selfallocate:
                 self.dealloc_entity()
         self._c_ptr = NULL
-        self.__mdict__ = self.__mddict__.copy()
+        self.__mdict__ = {}
         self.nelms = 0
         del self.elmlist[0:]
         self.boundstate  = _boundstate_unbound
@@ -152,8 +139,9 @@ cdef class CObjPtr(object):
         self.boundstate = _boundstate_selfallocate
         self.nelms  = nelms
         del self.elmlist[0:]
-        i = 0
-        tmp_ptr = self._c_ptr
+        self.elmlist.append(self)
+        i = 1
+        tmp_ptr = self._c_ptr + self._c_esize
         while i < nelms:
             ref = self.__class__(0)
             ref.bind(tmp_ptr)
@@ -161,8 +149,8 @@ cdef class CObjPtr(object):
             self.elmlist.append(ref)
             tmp_ptr = tmp_ptr + self._c_esize
             i = i + 1
-        i = 0
-        for ref in self.elmlist:
+        i = 1
+        for ref in self.elmlist[1:]:
             ref.elmlist[0:] = self.elmlist[i:]
             i = i + 1
         # initialize allocated entity with values specified by arguments.
