@@ -10,7 +10,7 @@ cdef class CObjPtr(object):
     cdef public object elmlist
     cdef object __mdict__
     cdef object __mddict__
-    cdef void _allocator(self, int n)
-    cpdef _deallocator(self)
+    cdef _allocator(self, int n)
+    cdef _deallocator(self)
     cdef void bind(self, void *ptr, int n=?)
     cpdef unbind(self)
