@@ -79,9 +79,11 @@ cdef class CObjPtr(object):
     def __dealloc__(self):
         if self.boundstate == _boundstate_selfallocate:
             assert self._c_ptr is not NULL
-            self._deallocator()
+            # Any call of instance methods is inhibited,
+            # so try to call class method of _deallocator
+            self.__class__._deallocator(self)
             self.boundstate = _boundstate_unbound
-    def _allocator(self, n):
+    cdef void _allocator(self, int n):
         cdef void *tmp_ptr
         tmp_ptr = PyMem_Malloc(self._c_esize * n)
         if tmp_ptr is NULL:
@@ -93,7 +95,7 @@ cdef class CObjPtr(object):
         ELSE:
             memset(tmp_ptr, 0, self._c_esize * n)
         self._c_ptr = tmp_ptr
-    def _deallocator(self):
+    cdef void _deallocator(self):
         PyMem_Free(self._c_ptr)
     def values(self): 
         if self.boundstate == _boundstate_unbound:
@@ -102,7 +104,7 @@ cdef class CObjPtr(object):
         for m in self.__mddict__:
             md[m] = self.__getattr__(m)
         return md
-    cdef bind(self, void *ptr, int n=0):
+    cdef void bind(self, void *ptr, int n=0):
         cdef int i
         cdef void * tmp_ptr
         cdef CObjPtr ref
