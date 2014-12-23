@@ -95,7 +95,7 @@ cdef class CObjPtr(object):
         ELSE:
             memset(tmp_ptr, 0, self._c_esize * n)
         self._c_ptr = tmp_ptr
-    cdef void _deallocator(self):
+    cpdef _deallocator(self):
         PyMem_Free(self._c_ptr)
     def values(self): 
         if self.boundstate == _boundstate_unbound:
