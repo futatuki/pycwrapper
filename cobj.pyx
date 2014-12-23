@@ -102,20 +102,40 @@ cdef class CObjPtr(object):
         for m in self.__mddict__:
             md[m] = self.__getattr__(m)
         return md
-    cdef bind(self, void *ptr):
+    cdef bind(self, void *ptr, int n=0):
+        cdef int i
+        cdef void * tmp_ptr
+        cdef CObjPtr ref
         if self.boundstate != 0:
             raise TypeError('must do unbind() before bind()')
             # self.unbind()
         if ptr is NULL:
             raise ValueError('cannot bind NULL pointer')
-        else:
-            #if self.__class__.__name__ != 'CObjPtr':
-            #    raise NotImplementedError()
-            self._c_ptr = ptr
-            self.boundstate = _boundstate_bound
-            # there is no way to know how many elements to access safely ...
-            self.nelms  = 0
+        #if self.__class__.__name__ != 'CObjPtr':
+        #    raise NotImplementedError()
+        self._c_ptr = ptr
+        if n > 0:
+            self.nelms = n
             del self.elmlist[0:]
+            self.elmlist.append(self)
+            i = 1
+            tmp_ptr = ptr + self._c_esize
+            while i < n:
+                ref = self.__class__(0)
+                ref.bind(tmp_ptr)
+                ref.nelms = n - i
+                self.elmlist.append(ref)
+                tmp_ptr = tmp_ptr + self._c_esize
+                i = i + 1
+            i = 1
+            for ref in self.elmlist[1:]:
+                ref.elmlist[0:] = self.elmlist[i:]
+                i = i + 1
+        else:
+            # there is no way to know how many elements to access safely ...
+            self.nelms = 0
+            del self.elmlist[0:]
+        self.boundstate = _boundstate_bound
     cpdef unbind(self):
         if self._c_ptr is not NULL:
             if self.boundstate == _boundstate_selfallocate:
@@ -136,23 +156,8 @@ cdef class CObjPtr(object):
                 'nelms is number of allocation units, '
                 'so it must greater than 0')
         self._allocator(nelms)
+        self.bind(self._c_ptr, nelms)
         self.boundstate = _boundstate_selfallocate
-        self.nelms  = nelms
-        del self.elmlist[0:]
-        self.elmlist.append(self)
-        i = 1
-        tmp_ptr = self._c_ptr + self._c_esize
-        while i < nelms:
-            ref = self.__class__(0)
-            ref.bind(tmp_ptr)
-            ref.nelms = nelms - i
-            self.elmlist.append(ref)
-            tmp_ptr = tmp_ptr + self._c_esize
-            i = i + 1
-        i = 1
-        for ref in self.elmlist[1:]:
-            ref.elmlist[0:] = self.elmlist[i:]
-            i = i + 1
         # initialize allocated entity with values specified by arguments.
         #    1. argument m holds default values 
         #    2. vals holds list of values, each of element is a dict of 
