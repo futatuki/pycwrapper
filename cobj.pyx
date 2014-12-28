@@ -145,6 +145,17 @@ cdef class CObjPtr(object):
         self.nelms = 0
         del self.elmlist[0:]
         self.boundstate  = _boundstate_unbound
+    def cast(self, type t):
+        cdef CObjPtr ref
+        if self.boundstate == _boundstate_unbound:
+            raise TypeError('Not bound yet')
+        assert self._c_ptr is not NULL
+        if ( t is not CObjPtr and 
+                not t in CObjPtr.__subclasses__() ):
+            raise TypeError('cast type must be the CObjPtr or its subclass')
+        ref = t(0)
+        ref.bind(self._c_ptr)
+        return ref
     def alloc_entity(self, nelms=1, vals=None, **m):
         cdef void *tmp_ptr
         cdef int i
@@ -207,7 +218,7 @@ cdef class CPtrPtr(CObjPtr):
     def __cinit__(self, nelms=1, vals=None, ptr_class=CObjPtr, **m):
         if ( ptr_class is not CObjPtr and 
                 not ptr_class in CObjPtr.__subclasses__() ):
-            raise TypeError('ptr_class must be a CObjPtr or its subclass')
+            raise TypeError('ptr_class must be the CObjPtr or its subclass')
         self.ptr_class = CObjPtr
         self._c_base_type = 'void *'
         self._c_esize = sizeof(void *)
