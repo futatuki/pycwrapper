@@ -24,7 +24,8 @@ cdef class CObjPtr(object):
 #    cdef object __mdict__
     def __cinit__(self, nelms=1, vals=None, **m):
         self._c_ptr = NULL
-        self.boundstate  = _boundstate_unbound
+        self.boundstate = _boundstate_unbound
+        self.entity_obj = None
         self.nelms  = 0
         self.elmlist = []
         self._c_base_type = 'void'
@@ -95,14 +96,14 @@ cdef class CObjPtr(object):
         self._c_ptr = tmp_ptr
     cdef _deallocator(self):
         PyMem_Free(self._c_ptr)
-    def values(self): 
+    def values(self):
         if self.boundstate == _boundstate_unbound:
             raise TypeError('Not bound yet')
         md = {}
         for m in self.__mddict__:
             md[m] = self.__getattr__(m)
         return md
-    cdef void bind(self, void *ptr, int n=0):
+    cdef void bind(self, void *ptr, int n=0, entity_obj=None):
         cdef int i
         cdef void * tmp_ptr
         cdef CObjPtr ref
@@ -114,6 +115,7 @@ cdef class CObjPtr(object):
         #if self.__class__.__name__ != 'CObjPtr':
         #    raise NotImplementedError()
         self._c_ptr = ptr
+        self.entity_obj = entity_obj
         if n > 0:
             self.nelms = n
             del self.elmlist[0:]
@@ -122,7 +124,7 @@ cdef class CObjPtr(object):
             tmp_ptr = ptr + self._c_esize
             while i < n:
                 ref = self.__class__(0)
-                ref.bind(tmp_ptr)
+                ref.bind(tmp_ptr, 0, entity_obj)
                 ref.nelms = n - i
                 self.elmlist.append(ref)
                 tmp_ptr = tmp_ptr + self._c_esize
@@ -141,6 +143,7 @@ cdef class CObjPtr(object):
             if self.boundstate == _boundstate_selfallocate:
                 self.dealloc_entity()
         self._c_ptr = NULL
+        self.entity_obj = None
         self.__mdict__ = {}
         self.nelms = 0
         del self.elmlist[0:]
@@ -150,11 +153,11 @@ cdef class CObjPtr(object):
         if self.boundstate == _boundstate_unbound:
             raise TypeError('Not bound yet')
         assert self._c_ptr is not NULL
-        if ( t is not CObjPtr and 
+        if ( t is not CObjPtr and
                 not t in CObjPtr.__subclasses__() ):
             raise TypeError('cast type must be the CObjPtr or its subclass')
         ref = t(0)
-        ref.bind(self._c_ptr)
+        ref.bind(self._c_ptr, 0, self.entity_obj)
         return ref
     def alloc_entity(self, nelms=1, vals=None, **m):
         cdef void *tmp_ptr
@@ -167,12 +170,12 @@ cdef class CObjPtr(object):
                 'nelms is number of allocation units, '
                 'so it must greater than 0')
         self._allocator(nelms)
-        self.bind(self._c_ptr, nelms)
+        self.bind(self._c_ptr, nelms, self)
         self.boundstate = _boundstate_selfallocate
         # initialize allocated entity with values specified by arguments.
-        #    1. argument m holds default values 
-        #    2. vals holds list of values, each of element is a dict of 
-        #       members to set. 
+        #    1. argument m holds default values
+        #    2. vals holds list of values, each of element is a dict of
+        #       members to set.
         # check default values
         dv = self.__mddict__.copy()
         try:
@@ -182,7 +185,7 @@ cdef class CObjPtr(object):
                         raise TypeError('Unknown member %s' % k)
                     dv[k] = m[k]
             # check and set values
-            if vals is None: 
+            if vals is None:
                 i = 0
                 while i < nelms:
                     self[i] = dv
@@ -197,7 +200,7 @@ cdef class CObjPtr(object):
                     else:
                         self[i] = val
                     i = i + 1
-                while i < nelms: 
+                while i < nelms:
                     self[i] = dv
                     i = i + 1
             else:
@@ -216,7 +219,7 @@ cdef class CObjPtr(object):
 
 cdef class CPtrPtr(CObjPtr):
     def __cinit__(self, nelms=1, vals=None, ptr_class=CObjPtr, **m):
-        if ( ptr_class is not CObjPtr and 
+        if ( ptr_class is not CObjPtr and
                 not ptr_class in CObjPtr.__subclasses__() ):
             raise TypeError('ptr_class must be the CObjPtr or its subclass')
         self.ptr_class = CObjPtr
@@ -239,7 +242,7 @@ cdef class CPtrPtr(CObjPtr):
                 self.__mdict__['m_'] = None
                 return None
             else:
-                if m_ is None or m_._c_ptr != tmp_ptr: 
+                if m_ is None or m_._c_ptr != tmp_ptr:
                     m_ = self.ptr_class(0)
                     m_.bind(tmp_ptr)
                 self.__mdict__['m_'] = m_
