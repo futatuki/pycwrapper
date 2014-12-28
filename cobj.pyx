@@ -38,7 +38,7 @@ cdef class CObjPtr(object):
         if self.boundstate == _boundstate_unbound:
             raise TypeError('Not bound yet')
         return self.elmlist[index]
-    def __setitem__(self, index, val): 
+    def __setitem__(self, index, val):
         cdef CObjPtr ref
         cdef CObjPtr ref2
         if self.boundstate == _boundstate_unbound:
@@ -202,3 +202,55 @@ cdef class CObjPtr(object):
             self._c_ptr = NULL
             self.nelms  = 0
             del self.elmlist[0:]
+
+cdef class CPtrPtr(CObjPtr):
+    def __cinit__(self, nelms=1, vals=None, ptr_class=CObjPtr, **m):
+        if ( ptr_class is not CObjPtr and 
+                not ptr_class in CObjPtr.__subclasses__() ):
+            raise TypeError('ptr_class must be a CObjPtr or its subclass')
+        self.ptr_class = CObjPtr
+        self._c_base_type = 'void *'
+        self._c_esize = sizeof(void *)
+        self.__mddict__ = { 'm_' : None }
+    def __init__(self, nelms=1, vals=None, ptr_class=CObjPtr, **m):
+        if nelms > 0:
+            self.alloc_entity(nelms, vals, **m)
+    property m_:
+        def __get__(self):
+            cdef void * tmp_ptr
+            cdef CObjPtr m_
+            if self.boundstate == _boundstate_unbound:
+                raise TypeError('Not bound yet')
+            assert self._c_ptr is not NULL
+            m_ = self.__mdict__.get('m_', None)
+            tmp_ptr = (<void**>(self._c_ptr))[0]
+            if tmp_ptr is NULL:
+                self.__mdict__['m_'] = None
+                return None
+            else:
+                if m_ is None or m_._c_ptr != tmp_ptr: 
+                    m_ = self.ptr_class(0)
+                    m_.bind(tmp_ptr)
+                self.__mdict__['m_'] = m_
+                return m_
+        def __set__(self,val):
+            if self.boundstate == _boundstate_unbound:
+                raise TypeError('Not bound yet')
+            assert self._c_ptr is not NULL
+            if val is None:
+                self.__mdict__['m_'] = None
+                (<void**>(self._c_ptr))[0] = NULL
+            elif not isinstance(val,self.ptr_class):
+                raise TypeError('attribute m_ must be a %s instance' %
+                        self.ptr_class.__name__)
+            elif val.boundstate == _boundstate_unbound:
+                raise ValueError('m_ must be a %s bounded instance' %
+                        self.ptr_class.__name__)
+            else:
+                self.__mdict__['m_'] = val
+                (<void**>(self._c_ptr))[0] = (<CObjPtr>val)._c_ptr
+        def __del__(self):
+            if self.boundstate != _boundstate_unbound:
+                assert self._c_ptr is not NULL
+                self.__mdict__['m_'] = None
+                (<void**>(self._c_ptr))[0] = NULL

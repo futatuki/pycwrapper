@@ -14,3 +14,6 @@ cdef class CObjPtr(object):
     cdef _deallocator(self)
     cdef void bind(self, void *ptr, int n=?)
     cpdef unbind(self)
+
+cdef class CPtrPtr(CObjPtr):
+    cdef type ptr_class 
