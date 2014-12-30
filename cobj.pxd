@@ -11,6 +11,7 @@ cdef class CObjPtr(object):
     cdef readonly object entity_obj
     cdef public int nelms
     cdef dict __mdict__
+    cdef dict __madict__
     cdef dict __mddict__
     cdef void * _allocator(self, int n)
     cdef _deallocator(self)
@@ -19,3 +20,9 @@ cdef class CObjPtr(object):
 
 cdef class CPtrPtr(CObjPtr):
     cdef type ptr_class 
+
+cdef class CCharPtr(CObjPtr):
+    pass
+
+cdef class CUCharPtr(CObjPtr):
+    pass

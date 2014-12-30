@@ -8,6 +8,7 @@ IF (    UNAME_SYSNAME == 'Linux'  or UNAME_SYSNAME == 'FreeBSD'
 ELSE:
     from lib.string cimport memset
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
+from cpython.version cimport PY_MAJOR_VERSION
 
 cdef class CObjPtr(object):
 #    cdef void *_c_ptr
@@ -28,11 +29,12 @@ cdef class CObjPtr(object):
         self.entity_obj = None
         self.nelms  = 0
         if is_const:
-            self._c_base_type = 'void'
-        else:
             self._c_base_type = 'const void'
+        else:
+            self._c_base_type = 'void'
         self._c_esize = 1
         self.__mddict__ = {}
+        self.__madict__ = {}
         self.__mdict__ = {}
     def __init__(self, nelms=1, vals=None, int is_const=False, **m):
         cdef void *tmp_ptr
@@ -55,15 +57,18 @@ cdef class CObjPtr(object):
         try:
             if len(m):
                 for k in m:
-                    if not dv.has_key(k):
-                        raise TypeError('Unknown member %s' % k)
-                    dv[k] = m[k]
+                    if dv.has_key(k):
+                        dv[k] = m[k]
+                    else:
+                        if self.__madict__.has_key(k):
+                            del dv[self.__madict__[k]]
+                            dv[k] = m[k]
+                        else:
+                            raise TypeError('Unknown member %s' % k)
             # check and set values
             if vals is None:
-                i = 0
-                while i < nelms:
+                for i in range(nelms):
                     self[i] = dv
-                    i = i + 1
             elif isinstance(vals, list):
                 i = 0
                 for val in vals:
@@ -116,7 +121,8 @@ cdef class CObjPtr(object):
               ref.__setattr__(k, self.__mddict__[k])
         elif isinstance(val, dict):
             for k in val:
-                if not self.__mddict__.has_key(k):
+                if ( not self.__mddict__.has_key(k) 
+                        and not self.__madict__.has_key(k) ):
                     raise TypeError('Unknown member %s' % k)
             for k in val:
                 ref.__setattr__(k, val[k])
@@ -198,13 +204,15 @@ cdef class CPtrPtr(CObjPtr):
                 not ptr_class in CObjPtr.__subclasses__() ):
             raise TypeError('ptr_class must be the CObjPtr or its subclass')
         self.ptr_class = CObjPtr
-        self._c_base_type = 'void *'
+        if is_const:
+            self._c_base_type = 'const void *'
+        else:
+            self._c_base_type = 'void *'
         self._c_esize = sizeof(void *)
         self.__mddict__ = { 'p_' : None }
     def __init__(self, int nelms=1, vals=None,
                         int is_const=False, ptr_class=CObjPtr, **m):
-        if nelms > 0:
-            self.alloc_entity(nelms, vals, **m)
+        CObjPtr.__init__(self, nelms, vals, is_const, **m)
     property p_:
         def __get__(self):
             cdef void * tmp_ptr
@@ -242,23 +250,125 @@ cdef class CPtrPtr(CObjPtr):
             self.__mdict__['p_'] = None
             (<void**>(self._c_ptr))[0] = NULL
 
-#cdef class CCharPtr(CObjPtr):
-#    def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
-#        self._c_base_type='char'
-#        self._c_esize = sizeof(char *)
-#        self.__mddict__ = { 'p_' : 0, 's_' : '' }
-#    property p_:
-#        def __get__(self):
-#            assert self._c_ptr is not NULL
-#            return (<char*>(self._c_ptr))[0]
-#        def __del__(self):
-#            assert self._c_ptr is not NULL
-#            (<char *>(self._c_ptr))[0] = 0
-#    property s_:
-#        def __get__(self):
-#            assert self._c_ptr is not NULL
-#            return <char *>(self._c_ptr)
-#        def __del__(self):
-#            assert self._c_ptr is not NULL
-#            (<char *>(self._c_ptr))[0] = 0
-#
+cdef class CCharPtr(CObjPtr):
+    def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
+        if is_const:
+            self._c_base_type = 'const char'
+        else:
+            self._c_base_type='char'
+        self._c_esize = sizeof(char)
+        self.__mddict__ = { 'p_' : 0 }
+        self.__madict__ = { 's_' : 'p_' }
+    def __init__(self, int nelms=1, vals=None, int is_const=False, **m):
+        cdef void * tmp_ptr
+        cdef object tmp_vals
+        if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
+                or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
+            if is_const and nelms == 0:
+                self.__mdict__['s_'] = vals
+                tmp_ptr = <void*><char*>vals
+                self.bind(tmp_ptr, nelms + 1, vals, False)
+            else:
+                tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
+                                for c in vals ] + [ {'p_' : 0 } ]
+                CObjPtr.__init__(self, nelms, tmp_vals, is_const, **m)
+        else:
+            CObjPtr.__init__(self, nelms, vals, is_const, **m)
+    property p_:
+        def __get__(self):
+            assert self._c_ptr is not NULL
+            return (<char*>(self._c_ptr))[0]
+        def __set__(self,val):
+            assert self._c_ptr is not NULL
+            if self._is_const and self._is_init:
+                raise TypeError('Pointer points const value. Cannot alter')
+            (<char*>(self._c_ptr))[0] = val
+        def __del__(self):
+            assert self._c_ptr is not NULL
+            (<char*>(self._c_ptr))[0] = 0
+    property s_:
+        def __get__(self):
+            assert self._c_ptr is not NULL
+            return <char*>(self._c_ptr)
+        def __set__(self,val):
+            cdef CCharPtr ref
+            cdef int i, slen
+            cdef char* chptr
+            cdef char c
+            assert self._c_ptr is not NULL
+            if self._is_const and self._is_init:
+                raise TypeError('Pointer points const value. Cannot alter')
+            chptr = val
+            slen = len(val) + 1
+            i = 0
+            while i < self.nelms - 1 and i < slen:
+                c = (<char*>chptr)[i]
+                if c == 0:
+                    break
+                (<char*>(self._c_ptr))[i] = c
+                i = i + 1
+            (<char*>(self._c_ptr))[i] = 0
+        def __del__(self):
+            assert self._c_ptr is not NULL
+            (<char *>(self._c_ptr))[0] = 0
+
+cdef class CUCharPtr(CObjPtr):
+    def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
+        if is_const:
+            self._c_base_type = 'const unsigned char'
+        else:
+            self._c_base_type='unsigned char'
+        self._c_esize = sizeof(unsigned char)
+        self.__mddict__ = { 'p_' : 0 }
+        self.__madict__ = { 's_' : 'p_' }
+    def __init__(self, int nelms=1, vals=None, int is_const=False, **m):
+        cdef void * tmp_ptr
+        cdef object tmp_vals
+        if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
+                or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
+            if is_const and nelms == 0:
+                self.__mdict__['s_'] = vals
+                tmp_ptr = <void*><char*>vals
+                self.bind(tmp_ptr, nelms + 1, vals, False)
+            else:
+                tmp_vals = [ {'p_': ord(c) } for c in vals ] + [ {'p_' : 0 } ]
+                CObjPtr.__init__(self, nelms, tmp_vals, is_const, **m)
+        else:
+            CObjPtr.__init__(self, nelms, vals, is_const, **m)
+    property p_:
+        def __get__(self):
+            assert self._c_ptr is not NULL
+            return (<unsigned char*>(self._c_ptr))[0]
+        def __set__(self,val):
+            assert self._c_ptr is not NULL
+            if self._is_const and self._is_init:
+                raise TypeError('Pointer points const value. Cannot alter')
+            (<unsigned char*>(self._c_ptr))[0] = val
+        def __del__(self):
+            assert self._c_ptr is not NULL
+            (<unsigned char*>(self._c_ptr))[0] = 0
+    property s_:
+        def __get__(self):
+            assert self._c_ptr is not NULL
+            return <char *>(self._c_ptr)
+        def __set__(self,val):
+            cdef CCharPtr ref
+            cdef int i, slen
+            cdef unsigned char* chptr
+            cdef unsigned char c
+            assert self._c_ptr is not NULL
+            if self._is_const and self._is_init:
+                raise TypeError('Pointer points const value. Cannot alter')
+            chptr = <unsigned char*><char*>val
+            slen = len(val) + 1
+            i = 0
+            while i < self.nelms - 1 and i < slen:
+                c = chptr[i]
+                if c == 0:
+                    break
+                (<unsigned char*>(self._c_ptr))[i] = c
+                i = i + 1
+            (<unsigned char*>(self._c_ptr))[i] = 0
+        def __del__(self):
+            assert self._c_ptr is not NULL
+            (<unsigned char *>(self._c_ptr))[0] = 0
