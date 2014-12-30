@@ -267,7 +267,7 @@ cdef class CCharPtr(CObjPtr):
             if is_const and nelms == 0:
                 self.__mdict__['s_'] = vals
                 tmp_ptr = <void*><char*>vals
-                self.bind(tmp_ptr, nelms + 1, vals, False)
+                self.bind(tmp_ptr, len(vals) + 1, vals, True)
             else:
                 tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
                                 for c in vals ] + [ {'p_' : 0 } ]
@@ -288,8 +288,10 @@ cdef class CCharPtr(CObjPtr):
             (<char*>(self._c_ptr))[0] = 0
     property s_:
         def __get__(self):
-            assert self._c_ptr is not NULL
-            return <char*>(self._c_ptr)
+            if self.nelms != 0:
+                return (<char *>(self._c_ptr))[:self.nelms]
+            else:
+                return <char *>(self._c_ptr)
         def __set__(self,val):
             cdef CCharPtr ref
             cdef int i, slen
@@ -329,7 +331,7 @@ cdef class CUCharPtr(CObjPtr):
             if is_const and nelms == 0:
                 self.__mdict__['s_'] = vals
                 tmp_ptr = <void*><char*>vals
-                self.bind(tmp_ptr, nelms + 1, vals, False)
+                self.bind(tmp_ptr, len(vals) + 1, vals, True)
             else:
                 tmp_vals = [ {'p_': ord(c) } for c in vals ] + [ {'p_' : 0 } ]
                 CObjPtr.__init__(self, nelms, tmp_vals, is_const, **m)
@@ -350,7 +352,10 @@ cdef class CUCharPtr(CObjPtr):
     property s_:
         def __get__(self):
             assert self._c_ptr is not NULL
-            return <char *>(self._c_ptr)
+            if self.nelms != 0:
+                return (<char *>(self._c_ptr))[:self.nelms]
+            else:
+                return <char *>(self._c_ptr)
         def __set__(self,val):
             cdef CCharPtr ref
             cdef int i, slen
