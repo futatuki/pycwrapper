@@ -40,13 +40,27 @@ cdef class CObjPtr(object):
         cdef void *tmp_ptr
         cdef int i
         cdef CObjPtr ref
+        cdef nl
         assert self._c_ptr is NULL
-        if nelms < 1:
-            raise ValueError(
-                'nelms is number of allocation units, '
-                'so it must greater than 0')
-        tmp_ptr = self._allocator(nelms)
-        self.bind(tmp_ptr, nelms, None, True)
+        if nelms == 0:
+            if vals is None:
+                raise ValueError(
+                    'nelms is number of allocation units, '
+                    'so it must greater than 0')
+            else:
+                try:
+                    nl = len(vals)
+                except TypeError:
+                    raise TypeError(
+                        'vals must be sequence type of elements values') 
+            if nl == 0:
+                raise ValueError(
+                    'nelms is number of allocation units, '
+                    'so it must greater than 0')
+        else:
+            nl = nelms
+        tmp_ptr = self._allocator(nl)
+        self.bind(tmp_ptr, nl, None, True)
         self._has_entity = True
         # initialize allocated entity with values specified by arguments.
         #    1. argument m holds default values
@@ -69,7 +83,12 @@ cdef class CObjPtr(object):
             if vals is None:
                 for i in range(nelms):
                     self[i] = dv
-            elif isinstance(vals, list):
+            else:
+                try:
+                    is_iterable = iter(vals)
+                except TypeError:
+                    raise TypeError(
+                        'vals must be iterable of values to set elements')
                 i = 0
                 for val in vals:
                     if i >= nelms:
@@ -82,8 +101,6 @@ cdef class CObjPtr(object):
                 while i < nelms:
                     self[i] = dv
                     i = i + 1
-            else:
-                raise TypeError('vals must be lists of member dict')
             self._is_init = True 
         except Exception,e:
             self._deallocator()
@@ -288,6 +305,9 @@ cdef class CCharPtr(CObjPtr):
             (<char*>(self._c_ptr))[0] = 0
     property s_:
         def __get__(self):
+            assert self._c_ptr is not NULL
+            if self._is_const and self.__mdict__.has_key('s_'):
+                return self.__mdict__['s_']
             if self.nelms != 0:
                 return (<char *>(self._c_ptr))[:self.nelms]
             else:
@@ -352,6 +372,8 @@ cdef class CUCharPtr(CObjPtr):
     property s_:
         def __get__(self):
             assert self._c_ptr is not NULL
+            if self._is_const and self.__mdict__.has_key('s_'):
+                return self.__mdict__['s_']
             if self.nelms != 0:
                 return (<char *>(self._c_ptr))[:self.nelms]
             else:
