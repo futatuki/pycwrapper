@@ -9,17 +9,19 @@ cdef class CObjPtr(object):
     cdef readonly const char *_c_base_type
     cdef readonly size_t _c_esize
     cdef readonly object entity_obj
-    cdef public int nelms
-    cdef dict __mdict__
-    cdef dict __madict__
-    cdef dict __mddict__
+    cdef int _nelms
+    cdef int _nth
+    cdef dict _mddict
+    cdef dict _madict
+    cdef list _py_vals
     cdef void * _allocator(self, int n)
     cdef _deallocator(self)
-    cdef void bind(self, void *ptr, int n=?,
-                         object entity_obj=?, int flg_keep=?)
+    cdef void bind(self, void *ptr, int n=?, int nth=?,
+             object entity_obj=?, int flg_keep=?, list py_vals=?)
 
 cdef class CPtrPtr(CObjPtr):
-    cdef type ptr_class 
+    cdef type _ptr_class 
+    cdef int _ptr_is_const
 
 cdef class CCharPtr(CObjPtr):
     pass

@@ -18,24 +18,27 @@ cdef class CObjPtr(object):
 #    cdef readonly const char *_c_base_type
 #    cdef readonly size_t _c_esize
 #    cdef readonly object entity_obj
-#    cdef public int nelms
-#    cdef dict __mdict__
-#    cdef dict __mddict__
+#    cdef int _nelms
+#    cdef int _nth
+#    cdef dict _mddict
+#    cdef dict _madict
+#    cdef list _py_vals
     def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
         self._c_ptr = NULL
         self._is_const = is_const
         self._is_init = False
         self._has_entity = False
         self.entity_obj = None
-        self.nelms  = 0
+        self._nelms  = 0
+        self._nth  = 0
         if is_const:
             self._c_base_type = 'const void'
         else:
             self._c_base_type = 'void'
         self._c_esize = 1
-        self.__mddict__ = {}
-        self.__madict__ = {}
-        self.__mdict__ = {}
+        self._mddict = {}
+        self._madict = {}
+        self._py_vals = []
     def __init__(self, nelms=1, vals=None, int is_const=False, **m):
         cdef void *tmp_ptr
         cdef int i
@@ -52,7 +55,7 @@ cdef class CObjPtr(object):
                     nl = len(vals)
                 except TypeError:
                     raise TypeError(
-                        'vals must be sequence type of elements values') 
+                        'vals must be sequence type of elements values')
             if nl == 0:
                 raise ValueError(
                     'nelms is number of allocation units, '
@@ -60,29 +63,30 @@ cdef class CObjPtr(object):
         else:
             nl = nelms
         tmp_ptr = self._allocator(nl)
-        self.bind(tmp_ptr, nl, None, True)
+        self.bind(tmp_ptr, nl, 0, None, True, [None])
         self._has_entity = True
         # initialize allocated entity with values specified by arguments.
         #    1. argument m holds default values
         #    2. vals holds list of values, each of element is a dict of
         #       members to set.
         # check default values
-        dv = self.__mddict__.copy()
+        dv = self._mddict.copy()
         try:
             if len(m):
                 for k in m:
                     if dv.has_key(k):
                         dv[k] = m[k]
                     else:
-                        if self.__madict__.has_key(k):
-                            del dv[self.__madict__[k]]
+                        if self._madict.has_key(k):
+                            del dv[self._madict[k]]
                             dv[k] = m[k]
                         else:
                             raise TypeError('Unknown member %s' % k)
             # check and set values
             if vals is None:
-                for i in range(nelms):
+                for i in range(nl):
                     self[i] = dv
+                    self._py_vals.append(dv)
             else:
                 try:
                     is_iterable = iter(vals)
@@ -91,21 +95,26 @@ cdef class CObjPtr(object):
                         'vals must be iterable of values to set elements')
                 i = 0
                 for val in vals:
-                    if i >= nelms:
+                    if i >= nl:
                         break
                     if val is None:
                         self[i] = dv
+                        self._py_vals.append(dv)
                     else:
                         self[i] = val
+                        self._py_vals.append(val)
                     i = i + 1
-                while i < nelms:
+                while i < nl:
                     self[i] = dv
                     i = i + 1
-            self._is_init = True 
+                    self._py_vals.append(dv)
+            self._is_init = True
         except Exception,e:
             self._deallocator()
             self._c_ptr = NULL
-            self.nelms  = 0
+            self._nelms  = 0
+            self._nth  = 0
+            del self._py_vals[0:]
             self._is_init = False
             self._has_entity = False
             self.entity_obj = None
@@ -117,13 +126,14 @@ cdef class CObjPtr(object):
         cdef void * tmpptr
         cdef CObjPtr ref
         assert self._c_ptr is not NULL
-        i = index if index >= 0 else self.nelms + index
-        if i < 0 or i >= self.nelms:
+        i = index + self._nth if index >= 0 else self._nelms + index
+        if i < self._nth or i >= self._nelms:
             raise IndexError('array index out of range')
-        tmpptr = self._c_ptr + self._c_esize * i
+        tmpptr = self._c_ptr + self._c_esize * (i - self._nth)
         ref = self.__class__.__new__(self.__class__, is_const = self._is_const)
-        ref.bind(tmpptr, self.nelms - i,
-                    self if self._has_entity else self.entity_obj)
+        ref.bind(tmpptr, self._nelms, i,
+                    self if self._has_entity else self.entity_obj, False,
+                    self._py_vals)
         return ref
     def __setitem__(self, index, val):
         cdef CObjPtr ref
@@ -134,34 +144,35 @@ cdef class CObjPtr(object):
         ref = self[index]
         ref._is_const = False
         if val is None:
-           for k in self.__mddict__:
-              ref.__setattr__(k, self.__mddict__[k])
+           for k in self._mddict:
+              ref.__setattr__(k, self._mddict[k])
         elif isinstance(val, dict):
             for k in val:
-                if ( not self.__mddict__.has_key(k) 
-                        and not self.__madict__.has_key(k) ):
+                if ( not self._mddict.has_key(k)
+                        and not self._madict.has_key(k) ):
                     raise TypeError('Unknown member %s' % k)
             for k in val:
                 ref.__setattr__(k, val[k])
         elif isinstance(val, self.__class__):
             ref2 = val
-            for k in ref2.__mddict__:
+            for k in ref._mddict:
                 ref.__setattr__(k, ref2.__getattr__(k))
         else:
             raise TypeError(
                 'val must be dict of member or instance of %s class'
                 % self.__class__.__name__)
+        self._py_vals[ref._nth] = val
     def __len__(self):
         assert self._c_ptr is not NULL
-        if self.nelms == 0:
+        if self._nelms == 0:
             raise TypeError('length unknown')
-        return self.nelms
+        return self._nelms - self._nth
     def __next__(self):
         assert self._c_ptr is not NULL
-        if self.nelms == 0:
+        if self._nelms == 0:
             raise TypeError(
                 "This object don't know how many element allocated")
-        if self.nelms == 1:
+        if self._nelms - self._nth == 1:
             raise StopIteration
         return self[1]
     def __dealloc__(self):
@@ -186,11 +197,11 @@ cdef class CObjPtr(object):
     def values(self):
         assert self._c_ptr is not NULL
         md = {}
-        for m in self.__mddict__:
+        for m in self._mddict:
             md[m] = self.__getattr__(m)
         return md
-    cdef void bind(self, void *ptr, int n=0,
-                        entity_obj=None, int flg_keep=False):
+    cdef void bind(self, void *ptr, int n=0, int nth=0,
+                entity_obj=None, int flg_keep=False, list py_vals=[None]):
         cdef int i
         cdef void * tmp_ptr
         cdef CObjPtr ref
@@ -201,7 +212,9 @@ cdef class CObjPtr(object):
         self.entity_obj = entity_obj
         if n < 0:
             raise ValueError('number of elements must 0 or positive value')
-        self.nelms = n
+        self._nelms = n
+        self._nth = nth
+        self._py_vals = py_vals
         self._is_init = not flg_keep
     def cast(self, type t, int is_const=False):
         cdef CObjPtr ref
@@ -210,61 +223,96 @@ cdef class CObjPtr(object):
                 not t in CObjPtr.__subclasses__() ):
             raise TypeError('cast type must be the CObjPtr or its subclass')
         ref = t.__new__(t,is_const=is_const)
-        ref.bind(self._c_ptr, 0,
-                    self if self._has_entity else self.entity_obj)
+        ref.bind(self._c_ptr, 0, 0,
+                self if self._has_entity else self.entity_obj, False, [None])
         return ref
 
 cdef class CPtrPtr(CObjPtr):
     def __cinit__(self, int nelms=1, vals=None,
-                        int is_const=False, ptr_class=CObjPtr, **m):
+            int is_const=False,
+            ptr_class=CObjPtr, int ptr_is_const=False, **m):
+        cdef object base_type_name
         if ( ptr_class is not CObjPtr and
                 not ptr_class in CObjPtr.__subclasses__() ):
             raise TypeError('ptr_class must be the CObjPtr or its subclass')
-        self.ptr_class = CObjPtr
-        if is_const:
-            self._c_base_type = 'const void *'
-        else:
-            self._c_base_type = 'void *'
+        self._is_const     = is_const
+        self._ptr_class    = ptr_class
+        self._ptr_is_const = ptr_is_const
+        base_type_name = (
+               ptr_class.__new__(ptr_class, ptr_is_const)._c_base_type
+               + (' const *' if is_const else '*'))
+        self._c_base_type  = base_type_name
         self._c_esize = sizeof(void *)
-        self.__mddict__ = { 'p_' : None }
+        self._mddict = { 'p_' : None }
     def __init__(self, int nelms=1, vals=None,
-                        int is_const=False, ptr_class=CObjPtr, **m):
+            int is_const=False,
+            ptr_class=CObjPtr, int ptr_is_const=False, **m):
         CObjPtr.__init__(self, nelms, vals, is_const, **m)
+    # __getitem__ is a dead copy of CObjPtr.__getitem__ except
+    # calling class costructor with argument for component class info. 
+    def __getitem__(self, index):
+        cdef int i
+        cdef void * tmpptr
+        cdef CObjPtr ref
+        assert self._c_ptr is not NULL
+        i = index + self._nth if index >= 0 else self._nelms + index
+        if i < self._nth or i >= self._nelms:
+            raise IndexError('array index out of range')
+        tmpptr = self._c_ptr + self._c_esize * (i - self._nth)
+        ref = self.__class__.__new__(
+                self.__class__, is_const = self._is_const,
+                ptr_class = self._ptr_class, ptr_is_const = self._ptr_is_const)
+        ref.bind(tmpptr, self._nelms, i,
+                    self if self._has_entity else self.entity_obj, False,
+                    self._py_vals)
+        return ref
     property p_:
         def __get__(self):
             cdef void * tmp_ptr
             cdef CObjPtr p_
+            cdef object mdict
+            cdef object val
             assert self._c_ptr is not NULL
-            p_ = self.__mdict__.get('p_', None)
             tmp_ptr = (<void**>(self._c_ptr))[0]
             if tmp_ptr is NULL:
-                self.__mdict__['p_'] = None
+                self._py_vals[self._nth] = None
                 return None
             else:
-                if p_ is None or p_._c_ptr != tmp_ptr:
-                    p_ = self.ptr_class(0)
-                    p_.bind(tmp_ptr)
-                self.__mdict__['p_'] = p_
+                mdict = self._py_vals[self._nth]
+                if mdict is None:
+                    val = None
+                else:
+                    val = mdict.get('p_', None)
+                if val is not None:
+                    p_ = val
+                    if p_._c_ptr == tmp_ptr:
+                        return p_
+                p_ = self._ptr_class.__new__(
+                       self._ptr_class, is_const=self._ptr_is_const)
+                p_.bind(tmp_ptr,0,0,None)
+                (self._py_vals[self._nth])['p_'] = p_
                 return p_
         def __set__(self,val):
+            cdef CObjPtr ref
             assert self._c_ptr is not NULL
             if self._is_const and self._is_init:
                 raise TypeError('Pointer points const value. Cannot alter')
             if val is None:
-                self.__mdict__['p_'] = None
+                self._py_vals[self._nth] = None
                 (<void**>(self._c_ptr))[0] = NULL
-            elif not isinstance(val,self.ptr_class):
+            elif not isinstance(val,self._ptr_class):
                 raise TypeError('attribute p_ must be a %s instance' %
-                        self.ptr_class.__name__)
-            elif not val._is_init:
+                        self._ptr_class.__name__)
+            ref = val 
+            if not ref._is_init:
                 raise ValueError('p_ must be a %s bounded instance' %
-                        self.ptr_class.__name__)
+                        self._ptr_class.__name__)
             else:
-                self.__mdict__['p_'] = val
-                (<void**>(self._c_ptr))[0] = (<CObjPtr>val)._c_ptr
+                self._py_vals[self._nth] = {'p_': ref}
+                (<void**>(self._c_ptr))[0] = ref._c_ptr
         def __del__(self):
             assert self._c_ptr is not NULL
-            self.__mdict__['p_'] = None
+            self._py_vals[self._nth] = None
             (<void**>(self._c_ptr))[0] = NULL
 
 cdef class CCharPtr(CObjPtr):
@@ -272,19 +320,20 @@ cdef class CCharPtr(CObjPtr):
         if is_const:
             self._c_base_type = 'const char'
         else:
-            self._c_base_type='char'
+            self._c_base_type = 'char'
         self._c_esize = sizeof(char)
-        self.__mddict__ = { 'p_' : 0 }
-        self.__madict__ = { 's_' : 'p_' }
+        self._mddict = { 'p_' : 0 }
+        self._madict = { 's_' : 'p_' }
     def __init__(self, int nelms=1, vals=None, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
                 or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
             if is_const and nelms == 0:
-                self.__mdict__['s_'] = vals
+                self._py_vals = [{ 's_': vals }] + ([None] * len(vals))
                 tmp_ptr = <void*><char*>vals
-                self.bind(tmp_ptr, len(vals) + 1, vals, True)
+                self.bind(tmp_ptr, len(vals) + 1, 0,
+                            vals, False, self._py_vals)
             else:
                 tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
                                 for c in vals ] + [ {'p_' : 0 } ]
@@ -306,10 +355,14 @@ cdef class CCharPtr(CObjPtr):
     property s_:
         def __get__(self):
             assert self._c_ptr is not NULL
-            if self._is_const and self.__mdict__.has_key('s_'):
-                return self.__mdict__['s_']
-            if self.nelms != 0:
-                return (<char *>(self._c_ptr))[:self.nelms]
+            if (self._is_const and isinstance(self._py_vals[0], dict)
+                    and self._py_vals[0].has_key('s_')):
+                return self._py_vals[0]['s_'][self._nth:(self._nelms-1)]
+            if self._nelms != 0:
+                if (<char *>(self._c_ptr))[(self._nelms-self._nth)-1] == 0:
+                    return (<char *>(self._c_ptr))[:(self._nelms-self._nth-1)]
+                else:
+                    return (<char *>(self._c_ptr))[:(self._nelms-self._nth)]
             else:
                 return <char *>(self._c_ptr)
         def __set__(self,val):
@@ -323,7 +376,7 @@ cdef class CCharPtr(CObjPtr):
             chptr = val
             slen = len(val) + 1
             i = 0
-            while i < self.nelms - 1 and i < slen:
+            while i < self._nelms - self._nth - 1 and i < slen:
                 c = (<char*>chptr)[i]
                 if c == 0:
                     break
@@ -339,21 +392,23 @@ cdef class CUCharPtr(CObjPtr):
         if is_const:
             self._c_base_type = 'const unsigned char'
         else:
-            self._c_base_type='unsigned char'
+            self._c_base_type = 'unsigned char'
         self._c_esize = sizeof(unsigned char)
-        self.__mddict__ = { 'p_' : 0 }
-        self.__madict__ = { 's_' : 'p_' }
+        self._mddict = { 'p_' : 0 }
+        self._madict = { 's_' : 'p_' }
     def __init__(self, int nelms=1, vals=None, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
                 or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
             if is_const and nelms == 0:
-                self.__mdict__['s_'] = vals
+                self._py_vals = [{ 's_': vals }] + ([None] * len(vals))
                 tmp_ptr = <void*><char*>vals
-                self.bind(tmp_ptr, len(vals) + 1, vals, True)
+                self.bind(tmp_ptr, len(vals) + 1, 0,
+                            vals, False, self._py_vals)
             else:
-                tmp_vals = [ {'p_': ord(c) } for c in vals ] + [ {'p_' : 0 } ]
+                tmp_vals = [ {'p_': ord(c) }
+                                for c in vals ] + [ {'p_' : 0 } ]
                 CObjPtr.__init__(self, nelms, tmp_vals, is_const, **m)
         else:
             CObjPtr.__init__(self, nelms, vals, is_const, **m)
@@ -368,14 +423,18 @@ cdef class CUCharPtr(CObjPtr):
             (<unsigned char*>(self._c_ptr))[0] = val
         def __del__(self):
             assert self._c_ptr is not NULL
-            (<unsigned char*>(self._c_ptr))[0] = 0
+            (<char*>(self._c_ptr))[0] = 0
     property s_:
         def __get__(self):
             assert self._c_ptr is not NULL
-            if self._is_const and self.__mdict__.has_key('s_'):
-                return self.__mdict__['s_']
-            if self.nelms != 0:
-                return (<char *>(self._c_ptr))[:self.nelms]
+            if (self._is_const and isinstance(self._py_vals[0], dict)
+                    and self._py_vals[0].has_key('s_')):
+                return self._py_vals[0]['s_'][self._nth:(self._nelms-1)]
+            if self._nelms != 0:
+                if (<char *>(self._c_ptr))[(self._nelms-self._nth)-1] == 0:
+                    return (<char *>(self._c_ptr))[:(self._nelms-self._nth-1)]
+                else:
+                    return (<char *>(self._c_ptr))[:(self._nelms-self._nth)]
             else:
                 return <char *>(self._c_ptr)
         def __set__(self,val):
@@ -389,7 +448,7 @@ cdef class CUCharPtr(CObjPtr):
             chptr = <unsigned char*><char*>val
             slen = len(val) + 1
             i = 0
-            while i < self.nelms - 1 and i < slen:
+            while i < self._nelms - self._nth - 1 and i < slen:
                 c = chptr[i]
                 if c == 0:
                     break
