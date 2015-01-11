@@ -38,7 +38,7 @@ cdef class CObjPtr(object):
         self._c_esize = 1
         self._mddict = {}
         self._madict = {}
-        self._py_vals = []
+        self._py_vals = [{}]
     def __init__(self, nelms=1, vals=None, int is_const=False, **m):
         cdef void *tmp_ptr
         cdef int i
@@ -63,7 +63,7 @@ cdef class CObjPtr(object):
         else:
             nl = nelms
         tmp_ptr = self._allocator(nl)
-        self.bind(tmp_ptr, nl, 0, None, [None], True)
+        self.bind(tmp_ptr, nl, 0, None, [{}] * nl, True)
         self._has_entity = True
         # initialize allocated entity with values specified by arguments.
         #    1. argument m holds default values
@@ -86,7 +86,6 @@ cdef class CObjPtr(object):
             if vals is None:
                 for i in range(nl):
                     self[i] = dv
-                    self._py_vals.append(dv)
             else:
                 try:
                     is_iterable = iter(vals)
@@ -99,15 +98,12 @@ cdef class CObjPtr(object):
                         break
                     if val is None:
                         self[i] = dv
-                        self._py_vals.append(dv)
                     else:
                         self[i] = val
-                        self._py_vals.append(val)
                     i = i + 1
                 while i < nl:
                     self[i] = dv
                     i = i + 1
-                    self._py_vals.append(dv)
             self._is_init = True
         except Exception,e:
             self._deallocator()
@@ -161,7 +157,6 @@ cdef class CObjPtr(object):
             raise TypeError(
                 'val must be dict of member or instance of %s class'
                 % self.__class__.__name__)
-        self._py_vals[ref._nth] = val
     def __len__(self):
         assert self._c_ptr is not NULL
         if self._nelms == 0:
@@ -248,10 +243,11 @@ cdef class CPtrPtr(CObjPtr):
             assert self._c_ptr is not NULL
             tmp_ptr =  (<void**>(self._c_ptr))[0]
             if tmp_ptr is NULL:
-                self._py_vals[self._nth] = None
+                self._py_vals[self._nth] = {}
                 return None
             else:
                 mdict = self._py_vals[self._nth]
+                # assert mdict is not None
                 if mdict is None:
                     val = None
                 else:
@@ -262,19 +258,17 @@ cdef class CPtrPtr(CObjPtr):
                         return p_
                 p_ = self._ptr_class.__new__(
                        self._ptr_class, is_const=self._ptr_is_const)
-                p_.bind(tmp_ptr,1,0,None,[None],False)
+                p_.bind(tmp_ptr,1,0,None,[{}],False)
                 self._py_vals[self._nth] = {'p_': p_}
                 return p_
         def __set__(self,val):
             cdef CObjPtr ref
-            cdef void * tmp_ptr
             assert self._c_ptr is not NULL
             if self._is_const and self._is_init:
                 raise TypeError('Pointer points const value. Cannot alter')
             if val is None:
-                self._py_vals[self._nth] = None
-                tmp_ptr = NULL
-                (<void**>(self._c_ptr))[0] = tmp_ptr
+                self._py_vals[self._nth] = {}
+                (<void**>(self._c_ptr))[0] = NULL
             else:
                 if not isinstance(val,self._ptr_class):
                     raise TypeError('attribute p_ must be a %s instance' %
@@ -329,7 +323,7 @@ cdef class CCharPtr(CObjPtr):
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
                 or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
             if is_const and nelms == 0:
-                self._py_vals = [{ 's_': vals }] + ([None] * len(vals))
+                self._py_vals = [{ 's_': vals }] + ([{}] * len(vals))
                 tmp_ptr = <void*><char*>vals
                 self.bind(tmp_ptr, len(vals) + 1, 0,
                             vals, self._py_vals, False)
@@ -401,7 +395,7 @@ cdef class CUCharPtr(CObjPtr):
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
                 or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
             if is_const and nelms == 0:
-                self._py_vals = [{ 's_': vals }] + ([None] * len(vals))
+                self._py_vals = [{ 's_': vals }] + ([{}] * len(vals))
                 tmp_ptr = <void*><char*>vals
                 self.bind(tmp_ptr, len(vals) + 1, 0,
                             vals, self._py_vals, False)
