@@ -196,7 +196,7 @@ cdef class CObjPtr(object):
             md[m] = self.__getattr__(m)
         return md
     cdef void bind(self, void *ptr, int n=0, int nth=0,
-                entity_obj=None, list py_vals=[None], int flg_keep=False):
+                entity_obj=None, list py_vals=[{}], int flg_keep=False):
         cdef int i
         cdef void * tmp_ptr
         cdef CObjPtr ref
@@ -219,7 +219,7 @@ cdef class CObjPtr(object):
             raise TypeError('cast type must be the CObjPtr or its subclass')
         ref = t.__new__(t,is_const=is_const)
         ref.bind(self._c_ptr, 0, 0,
-                self if self._has_entity else self.entity_obj, [None], False)
+                self if self._has_entity else self.entity_obj, [{}], False)
         return ref
 
 cdef class CPtrPtr(CObjPtr):
