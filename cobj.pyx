@@ -62,9 +62,12 @@ cdef class CObjPtr(object):
                     'so it must greater than 0')
         else:
             nl = nelms
-        tmp_ptr = self._allocator(nl)
-        self.bind(tmp_ptr, nl, 0, None, [{}] * nl, True)
+        #self._allocator(nl)
+        self.__class__._allocator(self, nl)
+        self._nelms = nl
+        self._nth = 0
         self._has_entity = True
+        self._py_vals = [{}] * nl
         # initialize allocated entity with values specified by arguments.
         #    1. argument m holds default values
         #    2. vals holds list of values, each of element is a dict of
@@ -106,7 +109,7 @@ cdef class CObjPtr(object):
                     i = i + 1
             self._is_init = True
         except Exception,e:
-            self._deallocator()
+            self.__class__._deallocator(self)
             self._c_ptr = NULL
             self._nelms  = 0
             self._nth  = 0
@@ -129,7 +132,7 @@ cdef class CObjPtr(object):
         ref = self.__class__.__new__(self.__class__, is_const = self._is_const)
         ref.bind(tmpptr, self._nelms, i,
                     self if self._has_entity else self.entity_obj,
-                    self._py_vals, False)
+                    self._py_vals)
         return ref
     def __setitem__(self, index, val):
         cdef CObjPtr ref
@@ -173,9 +176,10 @@ cdef class CObjPtr(object):
     def __dealloc__(self):
         if self._has_entity:
             assert self._c_ptr is not NULL
-            self._deallocator()
+            self.__class__._deallocator(self)
             self._has_entity = False
-    cdef void * _allocator(self, int n):
+    @staticmethod
+    def _allocator(self, int n):
         cdef void *tmp_ptr
         tmp_ptr = PyMem_Malloc(self._c_esize * n)
         if tmp_ptr is NULL:
@@ -186,9 +190,10 @@ cdef class CObjPtr(object):
             bzero(tmp_ptr, self._c_esize * n)
         ELSE:
             memset(tmp_ptr, 0, self._c_esize * n)
-        return tmp_ptr
-    cdef _deallocator(self):
-        PyMem_Free(self._c_ptr)
+        (<CObjPtr>self)._c_ptr = tmp_ptr
+    @staticmethod
+    def _deallocator(self):
+        PyMem_Free((<CObjPtr>self)._c_ptr)
     def values(self):
         assert self._c_ptr is not NULL
         md = {}
@@ -196,7 +201,7 @@ cdef class CObjPtr(object):
             md[m] = self.__getattr__(m)
         return md
     cdef void bind(self, void *ptr, int n=0, int nth=0,
-                entity_obj=None, list py_vals=[{}], int flg_keep=False):
+                entity_obj=None, list py_vals=[{}]):
         cdef int i
         cdef void * tmp_ptr
         cdef CObjPtr ref
@@ -210,7 +215,7 @@ cdef class CObjPtr(object):
         self._nelms = n
         self._nth = nth
         self._py_vals = py_vals
-        self._is_init = not flg_keep
+        self._is_init = True
     def cast(self, type t, int is_const=False):
         cdef CObjPtr ref
         assert self._c_ptr is not NULL
@@ -219,7 +224,7 @@ cdef class CObjPtr(object):
             raise TypeError('cast type must be the CObjPtr or its subclass')
         ref = t.__new__(t,is_const=is_const)
         ref.bind(self._c_ptr, 0, 0,
-                self if self._has_entity else self.entity_obj, [{}], False)
+                self if self._has_entity else self.entity_obj, [{}])
         return ref
 
 cdef class CPtrPtr(CObjPtr):
@@ -258,7 +263,7 @@ cdef class CPtrPtr(CObjPtr):
                         return p_
                 p_ = self._ptr_class.__new__(
                        self._ptr_class, is_const=self._ptr_is_const)
-                p_.bind(tmp_ptr,1,0,None,[{}],False)
+                p_.bind(tmp_ptr,1,0,None,[{}])
                 self._py_vals[self._nth] = {'p_': p_}
                 return p_
         def __set__(self,val):
@@ -326,7 +331,7 @@ cdef class CCharPtr(CObjPtr):
                 self._py_vals = [{ 's_': vals }] + ([{}] * len(vals))
                 tmp_ptr = <void*><char*>vals
                 self.bind(tmp_ptr, len(vals) + 1, 0,
-                            vals, self._py_vals, False)
+                            vals, self._py_vals)
             else:
                 tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
                                 for c in vals ] + [ {'p_' : 0 } ]
@@ -398,7 +403,7 @@ cdef class CUCharPtr(CObjPtr):
                 self._py_vals = [{ 's_': vals }] + ([{}] * len(vals))
                 tmp_ptr = <void*><char*>vals
                 self.bind(tmp_ptr, len(vals) + 1, 0,
-                            vals, self._py_vals, False)
+                            vals, self._py_vals)
             else:
                 tmp_vals = [ {'p_': ord(c) }
                                 for c in vals ] + [ {'p_' : 0 } ]

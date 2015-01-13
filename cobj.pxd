@@ -14,10 +14,8 @@ cdef class CObjPtr(object):
     cdef dict _mddict
     cdef dict _madict
     cdef list _py_vals
-    cdef void * _allocator(self, int n)
-    cdef _deallocator(self)
     cdef void bind(self, void *ptr, int n=?, int nth=?,
-             object entity_obj=?, list py_vals=?, int flg_keep=?)
+             object entity_obj=?, list py_vals=?)
 
 cdef class CPtrPtr(CObjPtr):
     cdef type _ptr_class 
