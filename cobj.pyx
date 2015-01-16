@@ -9,6 +9,33 @@ ELSE:
     from lib.string cimport memset
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.version cimport PY_MAJOR_VERSION
+import weakref
+
+cdef object ptr_to_bytes(void *ptr):
+    cdef char * s
+    s = <char*>&ptr
+    return s[:sizeof(void*)]
+cdef void * bytes_to_ptr(object bptr):
+    cdef char * s
+    if ( (PY_MAJOR_VERSION < 3 and isinstance(bptr, str))
+            or (PY_MAJOR_VERSION >= 3 and isinstance(bptr, bytes)) ):
+        s = bptr
+        return (<void **>s)[0]
+    else:
+        raise TypeError('bptr must str/bytes type')
+
+def CObjToPtrValue(CObjPtr obj):
+    return ptr_to_bytes(obj._c_ptr)
+
+def PtrValueToCObj(val, type objtype=CObjPtr,
+        int is_const=False, int nelms=1, entity_obj=None):
+    cdef CObjPtr obj
+    if ( objtype is not CObjPtr and
+            not objtype in CObjPtr.__subclasses__() ):
+        raise TypeError('objtype must be CObjPtr or its derivatives')
+    obj = objtype.__new__(objtype, nelms, None, is_const)
+    obj.bind(bytes_to_ptr(val), nelms, 0, entity_obj, [{}] * nelms)
+    return obj
 
 cdef class CObjPtr(object):
 #    cdef void *_c_ptr
@@ -23,6 +50,7 @@ cdef class CObjPtr(object):
 #    cdef dict _mddict
 #    cdef dict _madict
 #    cdef list _py_vals
+#    cdef object __weakref__
     def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
         self._c_ptr = NULL
         self._is_const = is_const
@@ -456,3 +484,4 @@ cdef class CUCharPtr(CObjPtr):
         def __del__(self):
             assert self._c_ptr is not NULL
             (<unsigned char *>(self._c_ptr))[0] = 0
+

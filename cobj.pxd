@@ -14,6 +14,7 @@ cdef class CObjPtr(object):
     cdef dict _mddict
     cdef dict _madict
     cdef list _py_vals
+    cdef object __weakref__
     cdef void bind(self, void *ptr, int n=?, int nth=?,
              object entity_obj=?, list py_vals=?)
 
