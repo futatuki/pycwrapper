@@ -90,8 +90,7 @@ cdef class CObjPtr(object):
                     'so it must greater than 0')
         else:
             nl = nelms
-        #self._allocator(nl)
-        self.__class__._allocator(self, nl)
+        self.__class__._allocate(self, nl)
         self._nelms = nl
         self._nth = 0
         self._has_entity = True
@@ -137,7 +136,7 @@ cdef class CObjPtr(object):
                     i = i + 1
             self._is_init = True
         except Exception,e:
-            self.__class__._deallocator(self)
+            self.__class__._deallocate(self)
             self._c_ptr = NULL
             self._nelms  = 0
             self._nth  = 0
@@ -204,24 +203,8 @@ cdef class CObjPtr(object):
     def __dealloc__(self):
         if self._has_entity:
             assert self._c_ptr is not NULL
-            self.__class__._deallocator(self)
+            self.__class__._deallocate(self)
             self._has_entity = False
-    @staticmethod
-    def _allocator(self, int n):
-        cdef void *tmp_ptr
-        tmp_ptr = PyMem_Malloc(self._c_esize * n)
-        if tmp_ptr is NULL:
-            raise MemoryError()
-        IF (    UNAME_SYSNAME == 'Linux'  or UNAME_SYSNAME == 'FreeBSD'
-             or UNAME_SYSNAME == 'NetBSD' or UNAME_SYSNAME == 'OpenBSD'
-             or UNAME_SYSNAME == 'Darwin' ):
-            bzero(tmp_ptr, self._c_esize * n)
-        ELSE:
-            memset(tmp_ptr, 0, self._c_esize * n)
-        (<CObjPtr>self)._c_ptr = tmp_ptr
-    @staticmethod
-    def _deallocator(self):
-        PyMem_Free((<CObjPtr>self)._c_ptr)
     def values(self):
         assert self._c_ptr is not NULL
         md = {}
@@ -254,6 +237,37 @@ cdef class CObjPtr(object):
         ref.bind(self._c_ptr, 0, 0,
                 self if self._has_entity else self.entity_obj, [{}])
         return ref
+    # for allocater methods
+    _allocated = {}
+    @staticmethod
+    def _default_allocater(CObjPtr obj, int n):
+        cdef void *tmp_ptr
+        tmp_ptr = PyMem_Malloc(obj._c_esize * n)
+        if tmp_ptr is NULL:
+            raise MemoryError()
+        IF (    UNAME_SYSNAME == 'Linux'  or UNAME_SYSNAME == 'FreeBSD'
+             or UNAME_SYSNAME == 'NetBSD' or UNAME_SYSNAME == 'OpenBSD'
+             or UNAME_SYSNAME == 'Darwin' ):
+            bzero(tmp_ptr, obj._c_esize * n)
+        ELSE:
+            memset(tmp_ptr, 0, obj._c_esize * n)
+        obj._c_ptr = tmp_ptr
+    @staticmethod
+    def _default_deallocater(CObjPtr obj):
+        PyMem_Free(obj._c_ptr)
+    _allocater_method = (_default_allocater, _default_deallocater)
+    @classmethod
+    def _allocate(cls, CObjPtr obj, int nl):
+        allocater, deallocater = cls._allocater_method
+        allocater(obj, nl)
+        cls._allocated[CObjToPtrValue(obj)] = deallocater
+    @classmethod
+    def _deallocate(cls, CObjPtr obj):
+        cls._allocated[CObjToPtrValue(obj)](obj)
+        del cls._allocated[CObjToPtrValue(obj)]
+    @classmethod
+    def set_allocater_method(cls, allocater, deallocater):
+        cls._allocater_methods = (allocater, deallocater)
 
 cdef class CPtrPtr(CObjPtr):
     def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):

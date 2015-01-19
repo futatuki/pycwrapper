@@ -19,10 +19,10 @@ cdef class CObjPtr(object):
              object entity_obj=?, list py_vals=?)
 
 cdef class CPtrPtr(CObjPtr):
-    cdef type _ptr_class 
+    cdef type _ptr_class
     cdef int _ptr_is_const
 #   for debug
-#    cdef public object _ptr_class 
+#    cdef public object _ptr_class
 #    cdef public object _ptr_is_const
 
 cdef class CCharPtr(CObjPtr):
