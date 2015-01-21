@@ -11,6 +11,7 @@ cdef class CObjPtr(object):
     cdef readonly object entity_obj
     cdef int _nelms
     cdef int _nth
+    cdef dict _opts
     cdef dict _mddict
     cdef dict _madict
     cdef list _py_vals

@@ -47,10 +47,13 @@ cdef class CObjPtr(object):
 #    cdef readonly object entity_obj
 #    cdef int _nelms
 #    cdef int _nth
+#    cdef dict _opts
 #    cdef dict _mddict
 #    cdef dict _madict
 #    cdef list _py_vals
 #    cdef object __weakref__
+    # for custom argments of constructer
+    _copts = {}
     def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
         self._c_ptr = NULL
         self._is_const = is_const
@@ -64,6 +67,7 @@ cdef class CObjPtr(object):
         else:
             self._c_base_type = 'void'
         self._c_esize = 1
+        self._opts = self.__class__._copts.copy()
         self._mddict = {}
         self._madict = {}
         self._py_vals = [{}]
@@ -73,6 +77,17 @@ cdef class CObjPtr(object):
         cdef CObjPtr ref
         cdef nl
         assert self._c_ptr is NULL
+        dv = self._mddict.copy()
+        for k in m:
+            if self._opts.has_key(k):
+                self._opts[k] = m[k]
+            elif dv.has_key(k): 
+                dv[k] = m[k]
+            elif self._madict.has_key(k):
+                del dv[self._madict[k]]
+                dv[k] = m[k]
+            else:
+                raise TypeError('Unknown member %s' % k)
         if nelms == 0:
             if vals is None:
                 raise ValueError(
@@ -96,22 +111,11 @@ cdef class CObjPtr(object):
         self._has_entity = True
         self._py_vals = [{}] * nl
         # initialize allocated entity with values specified by arguments.
-        #    1. argument m holds default values
+        #    1. dict dv holds default values
         #    2. vals holds list of values, each of element is a dict of
         #       members to set.
         # check default values
-        dv = self._mddict.copy()
         try:
-            if len(m):
-                for k in m:
-                    if dv.has_key(k):
-                        dv[k] = m[k]
-                    else:
-                        if self._madict.has_key(k):
-                            del dv[self._madict[k]]
-                            dv[k] = m[k]
-                        else:
-                            raise TypeError('Unknown member %s' % k)
             # check and set values
             if vals is None:
                 for i in range(nl):
