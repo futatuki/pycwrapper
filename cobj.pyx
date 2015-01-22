@@ -259,19 +259,21 @@ cdef class CObjPtr(object):
     @staticmethod
     def _default_deallocater(CObjPtr obj):
         PyMem_Free(obj._c_ptr)
-    _allocater_method = (_default_allocater, _default_deallocater)
+    _allocater_method = [(_default_allocater, _default_deallocater)]
     @classmethod
     def _allocate(cls, CObjPtr obj, int nl):
-        allocater, deallocater = cls._allocater_method
+        allocater, deallocater = cls._allocater_method[0]
         allocater(obj, nl)
         cls._allocated[CObjToPtrValue(obj)] = deallocater
     @classmethod
     def _deallocate(cls, CObjPtr obj):
-        cls._allocated[CObjToPtrValue(obj)](obj)
-        del cls._allocated[CObjToPtrValue(obj)]
+        cdef object ptrval
+        ptrval = CObjToPtrValue(obj)
+        cls._allocated[ptrval](obj)
+        del cls._allocated[ptrval]
     @classmethod
     def set_allocater_method(cls, allocater, deallocater):
-        cls._allocater_methods = (allocater, deallocater)
+        cls._allocater_method[0] = (allocater, deallocater)
 
 cdef class CPtrPtr(CObjPtr):
     def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
