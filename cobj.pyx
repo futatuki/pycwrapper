@@ -462,7 +462,7 @@ cdef class CUCharPtr(CObjPtr):
         def __get__(self):
             assert self._c_ptr is not NULL
             return (<unsigned char*>(self._c_ptr))[0]
-        def __set__(self,val):
+        def __set__(self, val):
             assert self._c_ptr is not NULL
             if self._is_const and self._is_init:
                 raise TypeError('Pointer points const value. Cannot alter')
@@ -483,7 +483,7 @@ cdef class CUCharPtr(CObjPtr):
                     return (<char *>(self._c_ptr))[:(self._nelms-self._nth)]
             else:
                 return <char *>(self._c_ptr)
-        def __set__(self,val):
+        def __set__(self, val):
             cdef CCharPtr ref
             cdef int i, slen
             cdef unsigned char* chptr
