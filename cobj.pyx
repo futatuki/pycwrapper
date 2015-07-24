@@ -339,7 +339,7 @@ cdef class CPtrPtr(CObjPtr):
             self._py_vals[self._nth] = None
             (<void**>(self._c_ptr))[0] = NULL
 
-def genPtrClass(type base_class, int base_is_const=False):
+cdef genPtrClass(type base_class, int base_is_const=False):
     def __new__(cls, int nelms=1, vals=None, int is_const=False, **m):
         cdef object base_type_name
         cdef CPtrPtr ref

@@ -26,6 +26,8 @@ cdef class CPtrPtr(CObjPtr):
 #    cdef public object _ptr_class
 #    cdef public object _ptr_is_const
 
+cdef genPtrClass(type base_class, int base_is_const=?)
+
 cdef class CCharPtr(CObjPtr):
     pass
 
