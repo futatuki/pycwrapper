@@ -30,8 +30,7 @@ def CObjToPtrValue(CObjPtr obj):
 def PtrValueToCObj(val, type objtype=CObjPtr,
         int is_const=False, int nelms=1, entity_obj=None):
     cdef CObjPtr obj
-    if ( objtype is not CObjPtr and
-            not objtype in CObjPtr.__subclasses__() ):
+    if not issubclass(objtype, CObjPtr):
         raise TypeError('objtype must be CObjPtr or its derivatives')
     obj = objtype.__new__(objtype, nelms, None, is_const)
     obj.bind(bytes_to_ptr(val), nelms, 0, entity_obj, [{}] * nelms)
@@ -234,8 +233,7 @@ cdef class CObjPtr(object):
     def cast(self, type t, int is_const=False):
         cdef CObjPtr ref
         assert self._c_ptr is not NULL
-        if ( t is not CObjPtr and
-                not t in CObjPtr.__subclasses__() ):
+        if not issubclass(t, CObjPtr):
             raise TypeError('cast type must be the CObjPtr or its subclass')
         ref = t.__new__(t,is_const=is_const)
         ref.bind(self._c_ptr, 0, 0,
@@ -355,8 +353,7 @@ cdef genPtrClass(type base_class, int base_is_const=False):
         ref._c_esize = sizeof(void *)
         ref._mddict = { 'p_' : None }
         return ref
-    if ( base_class is not CObjPtr and
-            not base_class in CObjPtr.__subclasses__() ):
+    if not issubclass(base_class,CObjPtr):
         raise TypeError('base class must be the CObjPtr or its subclass')
     attrdict = {'__new__' : staticmethod(__new__)}
     return type(base_class.__name__ + 'Ptr', (CPtrPtr, ), attrdict)
