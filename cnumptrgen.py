@@ -31,7 +31,7 @@ def clsdcl(ctype, clsname, defval):
 def clsdef(ctype, clsname, defval):
     return ("""
 cdef class %s(CObjPtr):
-    def __cinit__(self, nelms=1, vals=None, int is_const=False, **m):
+    def __cinit__(self, vals=None, nelms=0, int is_const=False, **m):
         cdef object c_base
         c_base = ('const ' if is_const else '') + '%s *'
         self._c_base_type = c_base

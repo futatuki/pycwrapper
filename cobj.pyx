@@ -32,7 +32,7 @@ def PtrValueToCObj(val, type objtype=CObjPtr,
     cdef CObjPtr obj
     if not issubclass(objtype, CObjPtr):
         raise TypeError('objtype must be CObjPtr or its derivatives')
-    obj = objtype.__new__(objtype, nelms, None, is_const)
+    obj = objtype.__new__(objtype, vals=None, nelms=nelms, is_const=is_const)
     obj.bind(bytes_to_ptr(val), nelms, 0, entity_obj, [{}] * nelms)
     return obj
 
@@ -53,7 +53,7 @@ cdef class CObjPtr(object):
 #    cdef object __weakref__
     # for custom argments of constructer
     _copts = {}
-    def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
+    def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):
         self._c_ptr = NULL
         self._is_const = is_const
         self._is_init = False
@@ -70,7 +70,7 @@ cdef class CObjPtr(object):
         self._mddict = {}
         self._madict = {}
         self._py_vals = [{}]
-    def __init__(self, nelms=1, vals=None, int is_const=False, **m):
+    def __init__(self, vals=None, nelms=0, int is_const=False, **m):
         cdef void *tmp_ptr
         cdef int i
         cdef CObjPtr ref
@@ -100,8 +100,7 @@ cdef class CObjPtr(object):
                         'vals must be sequence type of elements values')
             if nl == 0:
                 raise ValueError(
-                    'nelms is number of allocation units, '
-                    'so it must greater than 0')
+                    'no values to initialize')
         else:
             nl = nelms
         self.__class__._allocate(self, nl)
@@ -274,13 +273,13 @@ cdef class CObjPtr(object):
         cls._allocater_method[0] = (allocater, deallocater)
 
 cdef class CPtrPtr(CObjPtr):
-    def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
+    def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):
         cdef object base_type_name
         self._is_const     = is_const
         #self._ptr_class    = CObjPtr
         #self._ptr_is_const = False
         #base_type_name = (
-        #       self._ptr_class.__new__(CObjPtr, False)._c_base_type
+        #       self._ptr_class.__new__(CObjPtr, is_const=False)._c_base_type
         #       + (' const *' if is_const else '*'))
         #self._c_base_type  = base_type_name
         self._c_esize = sizeof(void *)
@@ -338,7 +337,7 @@ cdef class CPtrPtr(CObjPtr):
             (<void**>(self._c_ptr))[0] = NULL
 
 cdef genPtrClass(type base_class, int base_is_const=False):
-    def __new__(cls, int nelms=1, vals=None, int is_const=False, **m):
+    def __new__(cls, vals=None, int nelms=0, int is_const=False, **m):
         cdef object base_type_name
         cdef CPtrPtr ref
         ref = CPtrPtr.__new__(cls)
@@ -359,7 +358,7 @@ cdef genPtrClass(type base_class, int base_is_const=False):
     return type(base_class.__name__ + 'Ptr', (CPtrPtr, ), attrdict)
 
 cdef class CCharPtr(CObjPtr):
-    def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
+    def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):
         if is_const:
             self._c_base_type = 'const char'
         else:
@@ -367,7 +366,7 @@ cdef class CCharPtr(CObjPtr):
         self._c_esize = sizeof(char)
         self._mddict = { 'p_' : 0 }
         self._madict = { 's_' : 'p_' }
-    def __init__(self, int nelms=1, vals=None, int is_const=False, **m):
+    def __init__(self, vals=None, int nelms=0, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
@@ -380,9 +379,13 @@ cdef class CCharPtr(CObjPtr):
             else:
                 tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
                                 for c in vals ] + [ {'p_' : 0 } ]
-                CObjPtr.__init__(self, nelms, tmp_vals, is_const, **m)
+                CObjPtr.__init__(self, vals=tmp_vals, nelms=nelms,
+                        is_const=is_const, **m)
         else:
-            CObjPtr.__init__(self, nelms, vals, is_const, **m)
+            CObjPtr.__init__(
+                    self, vals=vals, nelms=nelms, is_const=is_const, **m)
+    def __str__(self):
+            return self.s_
     property p_:
         def __get__(self):
             assert self._c_ptr is not NULL
@@ -431,7 +434,7 @@ cdef class CCharPtr(CObjPtr):
             (<char *>(self._c_ptr))[0] = 0
 
 cdef class CUCharPtr(CObjPtr):
-    def __cinit__(self, int nelms=1, vals=None, int is_const=False, **m):
+    def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):
         if is_const:
             self._c_base_type = 'const unsigned char'
         else:
@@ -439,7 +442,7 @@ cdef class CUCharPtr(CObjPtr):
         self._c_esize = sizeof(unsigned char)
         self._mddict = { 'p_' : 0 }
         self._madict = { 's_' : 'p_' }
-    def __init__(self, int nelms=1, vals=None, int is_const=False, **m):
+    def __init__(self, vals=None, int nelms=0, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
@@ -452,9 +455,13 @@ cdef class CUCharPtr(CObjPtr):
             else:
                 tmp_vals = [ {'p_': ord(c) }
                                 for c in vals ] + [ {'p_' : 0 } ]
-                CObjPtr.__init__(self, nelms, tmp_vals, is_const, **m)
+                CObjPtr.__init__(self, vals=tmp_vals, nelms=nelms, 
+                        is_const=is_const, **m)
         else:
-            CObjPtr.__init__(self, nelms, vals, is_const, **m)
+            CObjPtr.__init__(
+                self, vals=vals, nelms=nelms, is_const=is_const, **m)
+    def __str__(self):
+            return self.s_
     property p_:
         def __get__(self):
             assert self._c_ptr is not NULL
@@ -501,4 +508,52 @@ cdef class CUCharPtr(CObjPtr):
         def __del__(self):
             assert self._c_ptr is not NULL
             (<unsigned char *>(self._c_ptr))[0] = 0
+
+# enum type class generator
+def enumgen(etypename, valuedict, defaultvalue,
+        initfunc = None,
+        intfunc = (lambda self : getattr(self, 'value')),
+        strfunc = (lambda self :
+                    getattr(self, '_revdict')[getattr(self, 'value')]),
+        reprfunc = (
+            lambda self :
+                '<' + getattr(getattr(self, '__class__'), '__name__') + '.'
+                    + getattr(getattr(self, '__class__'),
+                                '_revdict')[getattr(self,'value')] + '>'),
+        cmpfunc = (lambda self, val : int(self).__cmp__(int(val)))):
+    attrdict = {}
+    valdict = {}
+    revdict = {}
+    for vdkey in valuedict.keys():
+        attrdict[str(vdkey)] = int(valuedict[vdkey])
+        valdict[str(vdkey)] = int(valuedict[vdkey])
+        revdict[int(valuedict[vdkey])] = str(vdkey)
+    attrdict['_valdict'] = valdict
+    attrdict['_revdict'] = revdict
+    if initfunc is not None:
+        attrdict['__init__'] = initfunc
+    else:
+        def __init__(self, val=defaultvalue):
+            if isinstance(val, getattr(self, '__class__')):
+                setattr(self, 'value' , getattr(val, 'value'))
+            else:
+                try:
+                    setattr(self, 'value' ,
+                        getattr(getattr(self, '__class__'),'_valdict')[
+                            getattr(getattr(self,'__class__'),
+                                                    '_revdict')[int(val)]])
+                except (ValueError, TypeError, KeyError):
+                    try:
+                        setattr(self, 'value',
+                            getattr(getattr(self,'__class__'),
+                                    '_valdict')[str(val)])
+                    except (ValueError, TypeError, KeyError):
+                        raise ValueError(
+                            'init value %s is not valid' % repr(val))
+        attrdict['__init__'] = __init__
+    attrdict['__int__'] = intfunc
+    attrdict['__str__'] = strfunc
+    attrdict['__repr__'] = reprfunc
+    attrdict['__cmp__'] = cmpfunc
+    return type(etypename, (object,), attrdict)
 
