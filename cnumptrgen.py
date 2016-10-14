@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # $yfId$
+import os.path 
 
 basename = 'numptr'
 seeds = [
@@ -51,9 +52,14 @@ cdef class %s(CObjPtr):
             (<%s*>(self._c_ptr))[0] = %s
 """ % (clsname, ctype, ctype, defval, ctype, ctype, ctype, defval))
 
-if __name__ == "__main__":
-    pxdfname = basename + '.pxd'
-    pyxfname = basename + '.pyx'
+def write_cython_src(prefix=None):
+
+    if prefix:
+        pxdfname = os.path.join(prefix, basename + '.pxd')
+        pyxfname = os.path.join(prefix, basename + '.pyx')
+    else:
+        pxdfname = basename + '.pxd'
+        pyxfname = basename + '.pyx'
     pxdfile = open(pxdfname, 'w')
     pyxfile = open(pyxfname, 'w')
     # write header
@@ -64,3 +70,9 @@ if __name__ == "__main__":
         pyxfile.write(clsdef(**s))
     pxdfile.close()
     pyxfile.close()
+
+def main():
+    write_cython_src()
+
+if __name__ == "__main__":
+    main()

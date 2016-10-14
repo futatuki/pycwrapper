@@ -1,0 +1,7 @@
+include MANIFEST.in
+include Makefile
+include cnumptrgen.py
+include cobj.pyx
+include __init__.pxd
+include cobj.pxd
+include numptr.pxd

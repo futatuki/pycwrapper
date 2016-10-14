@@ -11,7 +11,7 @@ COBJS    =  cobj.c numptr.c
 	cython $<
 
 .c.so:
-	$(CC) -DNDEBUG $(CFLAGS) -fPIC -I/usr/local/include/python2.7 \
+	$(CC) -DNDEBUG $(CFLAGS) -fPIC \
 	    -shared -pthread \
 	    -Wl,-rpath,/usr/lib:/usr/local/lib \
 	    -fstack-protector $(LDFLAGS) $< $(LIBS) -o $@
@@ -29,4 +29,9 @@ cleanobj:
 	-rm ${COBJS} *.o numptr.pyx numptr.pxd
 
 clean:
-	-rm ${COBJS} *.so *.o numptr.pyx numptr.pxd
+	-rm ${COBJS} *.so *.o *.pyc numptr.pyx numptr.pxd
+
+clean-extra:
+	-rm -rf MANIFEST build dist 
+
+distclean: clean clean-extra
