@@ -21,7 +21,7 @@ all: cobj.so numptr.so
 cobj.c : cobj.pyx cobj.pxd
 
 numptr.pxd numptr.pyx: cnumptrgen.py
-	python cnumptrgen.py
+	python ./cnumptrgen.py
 
 numptr.c : numptr.pxd numptr.pyx
 
