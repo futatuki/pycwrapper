@@ -24,33 +24,33 @@ from .cobj cimport CObjPtr
 
 """
 
-def clsdcl(ctype, clsname, defval):
-    return """cdef class %s(CObjPtr): 
+def clsdcl(sdict):
+    return """cdef class %(clsname)s(CObjPtr): 
     pass
-""" % clsname
+""" % sdict
 
-def clsdef(ctype, clsname, defval):
-    return ("""
-cdef class %s(CObjPtr):
+def clsdef(sdict):
+    return """
+cdef class %(clsname)s(CObjPtr):
     def __cinit__(self, vals=None, nelms=0, int is_const=False, **m):
         cdef object c_base
-        c_base = ('const ' if is_const else '') + '%s *'
+        c_base = ('const ' if is_const else '') + '%(ctype)s *'
         self._c_base_type = c_base
-        self._c_esize = sizeof(%s)
-        self._mddict = { 'p_' : %s }
+        self._c_esize = sizeof(%(ctype)s)
+        self._mddict = { 'p_' : %(defval)s }
     property p_:
         def __get__(self):
             assert self._c_ptr is not NULL
-            return (<%s *>(self._c_ptr))[0]
+            return (<%(ctype)s *>(self._c_ptr))[0]
         def __set__(self, val):
             assert self._c_ptr is not NULL
             if self._is_const and self._is_init:
                 raise TypeError('Pointer points const value. Cannot alter')
-            (<%s*>(self._c_ptr))[0] = val
+            (<%(ctype)s*>(self._c_ptr))[0] = val
         def __del__(self):
             assert self._c_ptr is not NULL
-            (<%s*>(self._c_ptr))[0] = %s
-""" % (clsname, ctype, ctype, defval, ctype, ctype, ctype, defval))
+            (<%(ctype)s*>(self._c_ptr))[0] = %(defval)s
+""" % sdict
 
 def write_cython_src(prefix=None):
 
@@ -66,8 +66,8 @@ def write_cython_src(prefix=None):
     pxdfile.write(hdr_text % pxdfname)
     pyxfile.write(hdr_text % pyxfname)
     for s in seeds:
-        pxdfile.write(clsdcl(**s))
-        pyxfile.write(clsdef(**s))
+        pxdfile.write(clsdcl(s))
+        pyxfile.write(clsdef(s))
     pxdfile.close()
     pyxfile.close()
 
