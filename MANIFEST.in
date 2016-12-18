@@ -1,4 +1,5 @@
 # $yfId$
+include LICENSE
 include MANIFEST.in
 include cwrapper/Makefile
 include cwrapper/cnumptrgen.py

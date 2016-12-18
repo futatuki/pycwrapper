@@ -369,16 +369,22 @@ cdef class CCharPtr(CObjPtr):
     def __init__(self, vals=None, int nelms=0, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
+        cdef bytes bytes_val
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
                 or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
             if is_const and nelms == 0:
                 self._py_vals = [{ 's_': vals }] + ([{}] * len(vals))
-                tmp_ptr = <void*><char*>vals
+                bytes_val =vals
+                tmp_ptr = <void*><char*>bytes_val
                 self.bind(tmp_ptr, len(vals) + 1, 0,
                             vals, self._py_vals)
             else:
-                tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
-                                for c in vals ] + [ {'p_' : 0 } ]
+                if (PY_MAJOR_VERSION < 3):
+                    tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
+                                    for c in vals ] + [ {'p_' : 0 } ]
+                else:
+                    tmp_vals = [ {'p_': <char>(<unsigned char>c) }
+                                    for c in vals ] + [ {'p_' : 0 } ]
                 CObjPtr.__init__(self, vals=tmp_vals, nelms=nelms,
                         is_const=is_const, **m)
         else:
@@ -445,16 +451,22 @@ cdef class CUCharPtr(CObjPtr):
     def __init__(self, vals=None, int nelms=0, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
+        cdef bytes bytes_val
         if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
                 or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
             if is_const and nelms == 0:
                 self._py_vals = [{ 's_': vals }] + ([{}] * len(vals))
-                tmp_ptr = <void*><char*>vals
+                bytes_val =vals
+                tmp_ptr = <void*><char*>bytes_val
                 self.bind(tmp_ptr, len(vals) + 1, 0,
                             vals, self._py_vals)
             else:
-                tmp_vals = [ {'p_': ord(c) }
-                                for c in vals ] + [ {'p_' : 0 } ]
+                if (PY_MAJOR_VERSION < 3):
+                    tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
+                                    for c in vals ] + [ {'p_' : 0 } ]
+                else:
+                    tmp_vals = [ {'p_': <char>(<unsigned char>c) }
+                                    for c in vals ] + [ {'p_' : 0 } ]
                 CObjPtr.__init__(self, vals=tmp_vals, nelms=nelms, 
                         is_const=is_const, **m)
         else:

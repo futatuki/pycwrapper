@@ -36,10 +36,11 @@ site_package_path = (
 
 setup(name='cwrapper',
     version='0.98',
-    description= 'Base Class to help writing wrapper for pointer of'
+    description= 'Base Class to help writing wrapper for pointer of '
                     'C structure with Cython',
     author='Yasuhito FUTATSUKI',
     author_email='futatuki@yf.bsdclub.org',
+    license="BSD 2 clause",
     py_modules = ['cwrapper.__init__'],
     data_files = [ (site_package_path + 'cwrapper',
                     ['cwrapper/__init__.pxd', 'cwrapper/cobj.pxd',
