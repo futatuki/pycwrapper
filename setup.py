@@ -30,10 +30,6 @@ extensions = [
     Extension('cwrapper.cobj',['cwrapper/cobj.pyx']),
     Extension('cwrapper.numptr',['cwrapper/numptr.pyx'])]
 
-site_package_path = (
-    'lib/python' + '.'.join(platform.python_version_tuple()[0:2])
-    + '/site-packages/' )
-
 setup(name='cwrapper',
     version='0.98',
     description= 'Base Class to help writing wrapper for pointer of '
@@ -41,10 +37,8 @@ setup(name='cwrapper',
     author='Yasuhito FUTATSUKI',
     author_email='futatuki@yf.bsdclub.org',
     license="BSD 2 clause",
-    py_modules = ['cwrapper.__init__'],
-    data_files = [ (site_package_path + 'cwrapper',
-                    ['cwrapper/__init__.pxd', 'cwrapper/cobj.pxd',
-                        'cwrapper/numptr.pxd']) ],
+    packages = ['cwrapper'],
+    package_data = { 'cwrapper': ['*.pxd'] },
     ext_modules = extensions,
     cmdclass = {'pre_build' : pre_build,
                 'build'     : build,

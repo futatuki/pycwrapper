@@ -1,4 +1,6 @@
 # $yfId$
+PYTHON?  =      python
+CYTHON?  =      cython
 CFLAGS	+= 	-I/usr/local/include/python2.7
 LDFLAGS +=	-L/usr/local/lib
 LIBS	+=	-lpython2.7
@@ -20,8 +22,8 @@ all: cobj.so numptr.so
 
 cobj.c : cobj.pyx cobj.pxd
 
-numptr.pxd numptr.pyx: cnumptrgen.py
-	python ./cnumptrgen.py
+numptr.pxd numptr.pyx: ../cnumptrgen.py
+	python ../cnumptrgen.py
 
 numptr.c : numptr.pxd numptr.pyx
 
