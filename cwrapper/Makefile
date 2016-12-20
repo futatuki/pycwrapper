@@ -34,6 +34,6 @@ clean:
 	-rm ${COBJS} *.so *.o *.pyc numptr.pyx numptr.pxd
 
 clean-extra:
-	-rm -rf MANIFEST build dist 
+	-rm -rf ../MANIFEST ../build ../dist 
 
 distclean: clean clean-extra
