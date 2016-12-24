@@ -347,8 +347,10 @@ cdef genPtrClass(type base_class, int base_is_const=False):
         base_type_name = (
                base_class.__new__(base_class,
                                is_const=base_is_const)._c_base_type
-               + (' const *' if is_const else '*'))
-        ref._c_base_type  = base_type_name
+               + (b' const *' if is_const else b'*'))
+        # base_type_name is a temporary for this function, so keep reference 
+        ref._b_base_type = <bytes>base_type_name
+        ref._c_base_type = base_type_name
         ref._c_esize = sizeof(void *)
         ref._mddict = { 'p_' : None }
         return ref
@@ -532,8 +534,13 @@ def enumgen(etypename, valuedict, defaultvalue,
                 '<' + getattr(getattr(self, '__class__'), '__name__') + '.'
                     + getattr(getattr(self, '__class__'),
                                 '_revdict')[getattr(self,'value')] + '>'),
-        cmpfunc = (lambda self, val : int(self).__cmp__(int(val)))):
-    attrdict = {}
+        ltfunc = (lambda self, val : int(self) <  int(val)),
+        lefunc = (lambda self, val : int(self) <= int(val)),
+        eqfunc = (lambda self, val : int(self) == int(val)),
+        nefunc = (lambda self, val : int(self) != int(val)),
+        gtfunc = (lambda self, val : int(self) >  int(val)),
+        gefunc = (lambda self, val : int(self) >= int(val)),
+        attrdict = {}):
     valdict = {}
     revdict = {}
     for vdkey in valuedict.keys():
@@ -566,6 +573,11 @@ def enumgen(etypename, valuedict, defaultvalue,
     attrdict['__int__'] = intfunc
     attrdict['__str__'] = strfunc
     attrdict['__repr__'] = reprfunc
-    attrdict['__cmp__'] = cmpfunc
+    attrdict['__lt__'] = ltfunc
+    attrdict['__le__'] = lefunc
+    attrdict['__eq__'] = eqfunc
+    attrdict['__ne__'] = nefunc
+    attrdict['__gt__'] = gtfunc
+    attrdict['__ge__'] = gefunc
     return type(etypename, (object,), attrdict)
 
