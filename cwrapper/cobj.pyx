@@ -83,7 +83,13 @@ cdef class CObjPtr(object):
             elif dv.has_key(k): 
                 dv[k] = m[k]
             elif self._madict.has_key(k):
-                del dv[self._madict[k]]
+                if isinstance(list, self._madict[k]):
+                    for ak in self._madict[k]:
+                        if dv.has_key(ak):
+                            del dv[self._madict[ak]]
+                else:
+                    if dv.has_key(self._madict[k]):
+                        del dv[self._madict[k]]
                 dv[k] = m[k]
             else:
                 raise TypeError('Unknown member %s' % k)
@@ -367,7 +373,7 @@ cdef class CCharPtr(CObjPtr):
             self._c_base_type = 'char'
         self._c_esize = sizeof(char)
         self._mddict = { 'p_' : 0 }
-        self._madict = { 's_' : 'p_' }
+        self._madict = { 's_' : ['p_'] }
     def __init__(self, vals=None, int nelms=0, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
@@ -449,7 +455,7 @@ cdef class CUCharPtr(CObjPtr):
             self._c_base_type = 'unsigned char'
         self._c_esize = sizeof(unsigned char)
         self._mddict = { 'p_' : 0 }
-        self._madict = { 's_' : 'p_' }
+        self._madict = { 's_' : ['p_'] }
     def __init__(self, vals=None, int nelms=0, int is_const=False, **m):
         cdef void * tmp_ptr
         cdef object tmp_vals
