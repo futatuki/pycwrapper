@@ -155,6 +155,38 @@ cdef class CObjPtr(object):
             raise e
         #
     #
+    def __richcmp__(CObjPtr self, b, op):
+        if op == 0:  
+            return super.__lt__(b)
+        if op == 1:
+            if isinstance(b, CObjPtr):
+                return (  (    self._c_base_type == b._c_base_type 
+                           and self._c_ptr == (<CObjPtr>b)._c_ptr)
+                        or super.__lt__(b) )
+            else:
+                return super.__lt__(b)
+        if op == 2:
+            if isinstance(b, CObjPtr):
+                return (    self._c_base_type == b._c_base_type 
+                        and self._c_ptr == (<CObjPtr>b)._c_ptr)
+            else:
+                return False
+        if op == 3:
+            if isinstance(b, CObjPtr):
+                return not (    self._c_base_type == b._c_base_type 
+                            and self._c_ptr == (<CObjPtr>b)._c_ptr)
+            else:
+                return True
+        if op == 4:
+            return super.__gt__(b)
+        if op == 5:
+            if isinstance(b, CObjPtr):
+                return (  (    self._c_base_type == b._c_base_type 
+                           and self._c_ptr == (<CObjPtr>b)._c_ptr) 
+                        or super.__gt__(b) )
+            else:
+                return super.__gt__(b)
+
     def __getitem__(self, index):
         cdef int i
         cdef void * tmpptr
