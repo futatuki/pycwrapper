@@ -504,10 +504,10 @@ cdef class CUCharPtr(CObjPtr):
                             vals, self._py_vals)
             else:
                 if (PY_MAJOR_VERSION < 3):
-                    tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
+                    tmp_vals = [ {'p_': <unsigned char>ord(c) }
                                     for c in vals ] + [ {'p_' : 0 } ]
                 else:
-                    tmp_vals = [ {'p_': <char>(<unsigned char>c) }
+                    tmp_vals = [ {'p_': <unsigned char><char>c }
                                     for c in vals ] + [ {'p_' : 0 } ]
                 CObjPtr.__init__(self, vals=tmp_vals, nelms=nelms, 
                         is_const=is_const, **m)
