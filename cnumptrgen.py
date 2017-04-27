@@ -56,9 +56,11 @@ cdef class %(clsname)s(%(bclsname)s):
         (<%(ctype)s*>(self._c_ptr))[0] = %(defval)s
 """ % sdict
 
-def write_cython_src(prefix=None, basename=numptr_basename,
+def write_cython_src(prefix, basename,
         import_text=cobj_import_text, clsdef=ncls_seeds, bcls_name=bcls_text):
 
+    if not basename:
+        raise ValueError('basename is needed')
     if prefix:
         pxdfname = os.path.join(prefix, basename + '.pxd')
         pyxfname = os.path.join(prefix, basename + '.pyx')
@@ -78,7 +80,8 @@ def write_cython_src(prefix=None, basename=numptr_basename,
     pyxfile.close()
 
 def main():
-    write_cython_src()
+    write_cython_src(prefix=None, basename=numptr_basename,
+        import_text=cobj_import_text, clsdef=ncls_seeds, bcls_name=bcls_text)
 
 if __name__ == "__main__":
     main()
