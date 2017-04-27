@@ -38,18 +38,20 @@ cdef class %(clsname)s(CObjPtr):
         self._c_base_type = c_base
         self._c_esize = sizeof(%(ctype)s)
         self._mddict = { 'p_' : %(defval)s }
-    property p_:
-        def __get__(self):
-            assert self._c_ptr is not NULL
-            return (<%(ctype)s *>(self._c_ptr))[0]
-        def __set__(self, val):
-            assert self._c_ptr is not NULL
-            if self._is_const and self._is_init:
-                raise TypeError('Pointer points const value. Cannot alter')
-            (<%(ctype)s*>(self._c_ptr))[0] = val
-        def __del__(self):
-            assert self._c_ptr is not NULL
-            (<%(ctype)s*>(self._c_ptr))[0] = %(defval)s
+    @property
+    def p_(self):
+        assert self._c_ptr is not NULL
+        return (<%(ctype)s *>(self._c_ptr))[0]
+    @p_.setter
+    def p_(self, val):
+        assert self._c_ptr is not NULL
+        if self._is_const and self._is_init:
+            raise TypeError('Pointer points const value. Cannot alter')
+        (<%(ctype)s*>(self._c_ptr))[0] = val
+    @p_.deleter
+    def p_(self):
+        assert self._c_ptr is not NULL
+        (<%(ctype)s*>(self._c_ptr))[0] = %(defval)s
 """ % sdict
 
 def write_cython_src(prefix=None):

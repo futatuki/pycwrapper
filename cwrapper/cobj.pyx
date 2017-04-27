@@ -322,57 +322,59 @@ cdef class CPtrPtr(CObjPtr):
         #self._c_base_type  = base_type_name
         self._c_esize = sizeof(void *)
         self._mddict = { 'p_' : None }
-    property p_:
-        def __get__(self):
-            cdef void * tmp_ptr
-            cdef CObjPtr p_
-            cdef object mdict
-            cdef object val
-            assert self._c_ptr is not NULL
-            tmp_ptr =  (<void**>(self._c_ptr))[0]
-            if tmp_ptr is NULL:
-                self._py_vals[self._nth] = {}
-                return None
+    @property
+    def p_(self):
+        cdef void * tmp_ptr
+        cdef CObjPtr p_
+        cdef object mdict
+        cdef object val
+        assert self._c_ptr is not NULL
+        tmp_ptr =  (<void**>(self._c_ptr))[0]
+        if tmp_ptr is NULL:
+            self._py_vals[self._nth] = {}
+            return None
+        else:
+            mdict = self._py_vals[self._nth]
+            # assert mdict is not None
+            if mdict is None:
+                val = None
             else:
-                mdict = self._py_vals[self._nth]
-                # assert mdict is not None
-                if mdict is None:
-                    val = None
-                else:
-                    val = mdict.get('p_', None)
-                if val is not None:
-                    p_ = val
-                    if p_._c_ptr == tmp_ptr:
-                        return p_
-                p_ = self._ptr_class.__new__(
-                       self._ptr_class, is_const=self._ptr_is_const)
-                p_.bind(tmp_ptr,1,0,None,[{}])
-                self._py_vals[self._nth] = {'p_': p_}
-                return p_
-        def __set__(self,val):
-            cdef CObjPtr ref
-            assert self._c_ptr is not NULL
-            if self._is_const and self._is_init:
-                raise TypeError('Pointer points const value. Cannot alter')
-            if val is None:
-                self._py_vals[self._nth] = {}
-                (<void**>(self._c_ptr))[0] = NULL
-            else:
-                if not isinstance(val,self._ptr_class):
-                    raise TypeError('attribute p_ must be a %s instance' %
-                            self._ptr_class.__name__)
-                ref = val
-                if not ref._is_init:
-                    raise ValueError('p_ must be a %s bounded instance' %
-                            self._ptr_class.__name__)
-                else:
-                    self._py_vals[self._nth] = {'p_': ref}
-                    (<void**>(self._c_ptr))[0] = ref._c_ptr
-            #
-        def __del__(self):
-            assert self._c_ptr is not NULL
-            self._py_vals[self._nth] = None
+                val = mdict.get('p_', None)
+            if val is not None:
+                p_ = val
+                if p_._c_ptr == tmp_ptr:
+                    return p_
+            p_ = self._ptr_class.__new__(
+                   self._ptr_class, is_const=self._ptr_is_const)
+            p_.bind(tmp_ptr,1,0,None,[{}])
+            self._py_vals[self._nth] = {'p_': p_}
+            return p_
+    @p_.setter
+    def p_(self, val):
+        cdef CObjPtr ref
+        assert self._c_ptr is not NULL
+        if self._is_const and self._is_init:
+            raise TypeError('Pointer points const value. Cannot alter')
+        if val is None:
+            self._py_vals[self._nth] = {}
             (<void**>(self._c_ptr))[0] = NULL
+        else:
+            if not isinstance(val,self._ptr_class):
+                raise TypeError('attribute p_ must be a %s instance' %
+                        self._ptr_class.__name__)
+            ref = val
+            if not ref._is_init:
+                raise ValueError('p_ must be a %s bounded instance' %
+                        self._ptr_class.__name__)
+            else:
+                self._py_vals[self._nth] = {'p_': ref}
+                (<void**>(self._c_ptr))[0] = ref._c_ptr
+        #
+    @p_.deleter
+    def p_(self):
+        assert self._c_ptr is not NULL
+        self._py_vals[self._nth] = None
+        (<void**>(self._c_ptr))[0] = NULL
 
 cdef genPtrClass(type base_class, int base_is_const=False):
     def __new__(cls, vals=None, int nelms=0, int is_const=False, **m):
