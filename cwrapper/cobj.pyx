@@ -627,3 +627,93 @@ def enumgen(etypename, valuedict, defaultvalue,
     _attrdict['__ge__'] = gefunc
     return type(etypename, (object,), _attrdict.copy())
 
+def charptrgen(etypename, base):
+    def __new__(cls, vals=None, nelms=0, is_const=False, **m):
+        cdef CObjPtr ref
+        ref = base.__new__(cls, vals, nelms, is_const, **m)
+        if is_const:
+            ref._c_base_type = 'const char'
+        else:
+            ref._c_base_type = 'char'
+        ref._c_esize = sizeof(char)
+        ref._mddict = { 'p_' : 0 }
+        ref._madict = { 's_' : ['p_'] }
+        return ref
+    def __init__(CObjPtr self, vals=None, int nelms=0, int is_const=False, **m):
+        cdef void * tmp_ptr
+        cdef object tmp_vals
+        cdef bytes bytes_val
+        if ( (PY_MAJOR_VERSION < 3 and isinstance(vals, str))
+                or (PY_MAJOR_VERSION >= 3 and isinstance(vals, bytes)) ):
+            if is_const and nelms == 0:
+                self._py_vals = [{ 's_': vals }] + ([{}] * len(vals))
+                bytes_val =vals
+                tmp_ptr = <void*><char*>bytes_val
+                self.bind(tmp_ptr, len(vals) + 1, 0, vals, self._py_vals)
+            else:
+                if (PY_MAJOR_VERSION < 3):
+                    tmp_vals = [ {'p_': <char>(<unsigned char>ord(c)) }
+                                    for c in vals ] + [ {'p_' : 0 } ]
+                else:
+                    tmp_vals = [ {'p_': <char>(<unsigned char>c) }
+                                    for c in vals ] + [ {'p_' : 0 } ]
+                base.__init__(self, vals=tmp_vals, nelms=nelms,
+                        is_const=is_const, **m)
+        else:
+            base.__init__(
+                    self, vals=vals, nelms=nelms, is_const=is_const, **m)
+    def __str__(self):
+            return self.s_
+    def p_getter(CObjPtr self):
+        assert self._c_ptr is not NULL
+        return (<char*>(self._c_ptr))[0]
+    def p_setter(CObjPtr self, val):
+        assert self._c_ptr is not NULL
+        if self._is_const and self._is_init:
+            raise TypeError('Pointer points const value. Cannot alter')
+        (<char*>(self._c_ptr))[0] = val
+    def p_deleter(CObjPtr self):
+        assert self._c_ptr is not NULL
+        (<char*>(self._c_ptr))[0] = 0
+    def s_getter(CObjPtr self):
+        assert self._c_ptr is not NULL
+        if (self._is_const and isinstance(self._py_vals[0], dict)
+                and self._py_vals[0].has_key('s_')):
+            return self._py_vals[0]['s_'][self._nth:(self._nelms-1)]
+        if self._nelms != 0:
+            if ((<char *>(self._c_ptr))
+                    [(self._nelms-self._nth)-1]) == 0:
+                return (<char *>(self._c_ptr))[:(self._nelms-self._nth-1)]
+            else:
+                return (<char *>(self._c_ptr))[:(self._nelms-self._nth)]
+        else:
+            return <char *>(self._c_ptr)
+    def s_setter(CObjPtr self, val):
+        cdef int i, slen
+        cdef char* chptr
+        cdef char c
+        assert self._c_ptr is not NULL
+        if self._is_const and self._is_init:
+            raise TypeError('Pointer points const value. Cannot alter')
+        chptr = val
+        slen = len(val) + 1
+        i = 0
+        while i < self._nelms - self._nth - 1 and i < slen:
+            c = (<char*>chptr)[i]
+            if c == 0:
+                break
+            (<char*>(self._c_ptr))[i] = c
+            i = i + 1
+        (<char*>(self._c_ptr))[i] = 0
+    def s_deleter(CObjPtr self):
+        assert self._c_ptr is not NULL
+        (<char *>(self._c_ptr))[0] = 0
+    # function body
+    if not issubclass(base, CObjPtr):
+        raise TypeError('base must be CObjPtr or its derivatives')
+    attrdict = {'__new__'  : staticmethod(__new__),
+                '__init__' : __init__,
+                '__str__'  : __str__,
+                'p_'       : property(p_getter,p_setter,p_deleter),
+                's_'       : property(s_getter,s_setter,s_deleter)}
+    return type(etypename, (base,), attrdict.copy())
