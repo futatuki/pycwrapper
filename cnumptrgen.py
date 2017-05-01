@@ -26,35 +26,36 @@ from __future__ import absolute_import
 %s
 """ % (fname, import_text)
 
-def clsdcl(sdict):
-    return """cdef class %(clsname)s(%(bclsname)s): 
-    pass
-""" % sdict
-
-def numclsdef(sdict):
+def numptrclsdef(**kw):
     return """
-cdef class %(clsname)s(%(bclsname)s):
-    def __cinit__(self, vals=None, nelms=0, int is_const=False, **m):
+def %(clsname)s_gen(etypename, base): 
+    def __new__(cls, vals=None, nelms=0, is_const=False, **m):
+        cdef CObjPtr ref
         cdef object c_base
+        ref = base.__new__(cls, vals, nelms, is_const, **m)
         c_base = ('const ' if is_const else '') + '%(ctype)s'
-        self._c_base_type = c_base
-        self._c_esize = sizeof(%(ctype)s)
-        self._mddict = { 'p_' : %(defval)s }
-    @property
-    def p_(self):
+        ref._c_base_type = c_base
+        ref._c_esize = sizeof(%(ctype)s)
+        ref._mddict = { 'p_' : %(defval)s }
+        return ref
+    def p_getter(CObjPtr self):
         assert self._c_ptr is not NULL
         return (<%(ctype)s *>(self._c_ptr))[0]
-    @p_.setter
-    def p_(self, val):
+    def p_setter(CObjPtr self, val):
         assert self._c_ptr is not NULL
         if self._is_const and self._is_init:
             raise TypeError('Pointer points const value. Cannot alter')
         (<%(ctype)s*>(self._c_ptr))[0] = val
-    @p_.deleter
-    def p_(self):
+    def p_deleter(CObjPtr self):
         assert self._c_ptr is not NULL
         (<%(ctype)s*>(self._c_ptr))[0] = %(defval)s
-""" % sdict
+    # function body
+    if not issubclass(base, CObjPtr):
+        raise TypeError('base must be CObjPtr or its derivatives')
+    attrdict = {'__new__'  : staticmethod(__new__),
+                'p_'       : property(p_getter,p_setter,p_deleter)}
+    return type(etypename, (base,), attrdict.copy())
+""" % kw
 
 def write_cython_src(prefix, basename,
         import_text=cobj_import_text, clsdef=ncls_seeds, bcls_name=bcls_text):
@@ -62,21 +63,18 @@ def write_cython_src(prefix, basename,
     if not basename:
         raise ValueError('basename is needed')
     if prefix:
-        pxdfname = os.path.join(prefix, basename + '.pxd')
         pyxfname = os.path.join(prefix, basename + '.pyx')
     else:
-        pxdfname = basename + '.pxd'
         pyxfname = basename + '.pyx'
-    pxdfile = open(pxdfname, 'w')
     pyxfile = open(pyxfname, 'w')
     # write header
-    pxdfile.write(fileheader(pxdfname,import_text))
     pyxfile.write(fileheader(pyxfname,import_text))
     for s in clsdef:
-        s['bclsname'] = bcls_name
-        pxdfile.write(clsdcl(s))
-        pyxfile.write(numclsdef(s))
-    pxdfile.close()
+        pyxfile.write(numptrclsdef(**s))
+    pyxfile.write("\n")
+    for s in clsdef:
+        pyxfile.write("%s = %s_gen(%s, %s)\n"
+                % (s['clsname'], s['clsname'], s['clsname'], bcls_name))
     pyxfile.close()
 
 def main():
