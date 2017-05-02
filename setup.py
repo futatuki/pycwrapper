@@ -24,7 +24,7 @@ class pre_build(Command):
     def finalize_options(self):
         return
     def run(self):
-        os.system('cd cwrapper;make numptr.pxd numptr.pyx') 
+        os.system('cd cwrapper;make numptr.pyx') 
 
 extensions = [
     Extension('cwrapper.cobj',['cwrapper/cobj.pyx']),

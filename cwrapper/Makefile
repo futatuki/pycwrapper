@@ -22,16 +22,16 @@ all: cobj.so numptr.so
 
 cobj.c : cobj.pyx cobj.pxd
 
-numptr.pxd numptr.pyx: ../cnumptrgen.py
+numptr.pyx: ../cnumptrgen.py
 	python ../cnumptrgen.py
 
-numptr.c : numptr.pxd numptr.pyx
+numptr.c : numptr.pyx
 
 cleanobj:
-	-rm ${COBJS} *.o numptr.pyx numptr.pxd
+	-rm ${COBJS} *.o numptr.pyx
 
 clean:
-	-rm ${COBJS} *.so *.o *.pyc numptr.pyx numptr.pxd
+	-rm ${COBJS} *.so *.o *.pyc numptr.pyx
 
 clean-extra:
 	-rm -rf ../MANIFEST ../build ../dist 
