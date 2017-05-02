@@ -31,7 +31,7 @@ extensions = [
     Extension('cwrapper.numptr',['cwrapper/numptr.pyx'])]
 
 setup(name='cwrapper',
-    version='0.98',
+    version='0.98.1',
     description= 'Base Class to help writing wrapper for pointer of '
                     'C structure with Cython',
     author='Yasuhito FUTATSUKI',
