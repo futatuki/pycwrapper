@@ -578,17 +578,23 @@ def enumgen(etypename, valuedict, defaultvalue,
         nefunc = (lambda self, val : int(self) != int(val)),
         gtfunc = (lambda self, val : int(self) >  int(val)),
         gefunc = (lambda self, val : int(self) >= int(val)),
-        attrdict = {}):
+        attrdict = None):
     valdict = {}
     revdict = {}
+    if attrdict is None:
+        _attrdict = {}
+    elif isinstance(attrdict, dict):
+        _attrdict = attrdict.copy() 
+    else:
+        raise TypeError('attrdict should be a dict')
     for vdkey in valuedict.keys():
-        attrdict[str(vdkey)] = int(valuedict[vdkey])
+        _attrdict[str(vdkey)] = int(valuedict[vdkey])
         valdict[str(vdkey)] = int(valuedict[vdkey])
         revdict[int(valuedict[vdkey])] = str(vdkey)
-    attrdict['_valdict'] = valdict
-    attrdict['_revdict'] = revdict
+    _attrdict['_valdict'] = valdict.copy()
+    _attrdict['_revdict'] = revdict
     if initfunc is not None:
-        attrdict['__init__'] = initfunc
+        _attrdict['__init__'] = initfunc
     else:
         def __init__(self, val=defaultvalue):
             if isinstance(val, getattr(self, '__class__')):
@@ -607,15 +613,15 @@ def enumgen(etypename, valuedict, defaultvalue,
                     except (ValueError, TypeError, KeyError):
                         raise ValueError(
                             'init value %s is not valid' % repr(val))
-        attrdict['__init__'] = __init__
-    attrdict['__int__'] = intfunc
-    attrdict['__str__'] = strfunc
-    attrdict['__repr__'] = reprfunc
-    attrdict['__lt__'] = ltfunc
-    attrdict['__le__'] = lefunc
-    attrdict['__eq__'] = eqfunc
-    attrdict['__ne__'] = nefunc
-    attrdict['__gt__'] = gtfunc
-    attrdict['__ge__'] = gefunc
-    return type(etypename, (object,), attrdict)
+        _attrdict['__init__'] = __init__
+    _attrdict['__int__'] = intfunc
+    _attrdict['__str__'] = strfunc
+    _attrdict['__repr__'] = reprfunc
+    _attrdict['__lt__'] = ltfunc
+    _attrdict['__le__'] = lefunc
+    _attrdict['__eq__'] = eqfunc
+    _attrdict['__ne__'] = nefunc
+    _attrdict['__gt__'] = gtfunc
+    _attrdict['__ge__'] = gefunc
+    return type(etypename, (object,), _attrdict.copy())
 
