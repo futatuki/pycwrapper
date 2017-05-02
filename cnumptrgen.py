@@ -28,7 +28,7 @@ from __future__ import absolute_import
 
 def numptrclsdef(**kw):
     return """
-def %(clsname)s_gen(etypename, base): 
+def gen_%(clsname)s(etypename, base): 
     def __new__(cls, vals=None, nelms=0, is_const=False, **m):
         cdef CObjPtr ref
         cdef object c_base
@@ -73,8 +73,9 @@ def write_cython_src(prefix, basename,
         pyxfile.write(numptrclsdef(**s))
     pyxfile.write("\n")
     for s in clsdef:
-        pyxfile.write("%s = %s_gen(%s, %s)\n"
-                % (s['clsname'], s['clsname'], s['clsname'], bcls_name))
+        pyxfile.write(
+                "%(clsname)s = gen_%(clsname)s('%(clsname)s', %(bcls_name)s)\n"
+                % {'clsname': s['clsname'], 'bcls_name': bcls_name})
     pyxfile.close()
 
 def main():
