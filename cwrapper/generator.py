@@ -1,4 +1,4 @@
-# $yfID$
+# $yfId$
 
 import sys
 
@@ -32,7 +32,7 @@ common_template = """%%(decl_top)s
 #
 num_template_param = { 'madict' : '',  'ex_funcs' : '', 'ex_props' : '' }
 def char_template_param(pyver=None):
-    if pyver = None:
+    if pyver is None:
         pyver = sys.version_info[0]
     return {
     'madict' : """
@@ -51,7 +51,7 @@ def char_template_param(pyver=None):
                 self.bind(tmp_ptr, len(vals) + 1, 0, vals, self._py_vals)
             else:
                 tmp_vals = [ {'p_': """ + (
-                    '%%(cast_ord_c)s' if pyver 3 else '%%(cast_c)s') + """ }
+                    '%%(cast_ord_c)s' if pyver < 3 else '%%(cast_c)s') + """ }
                                     for c in vals ] + [ {'p_' : 0 } ]
                 %(base)s.__init__(self, vals=tmp_vals, nelms=nelms,
                         is_const=is_const, **m)
@@ -192,5 +192,3 @@ def FileHeader(fname, import_text):
 from __future__ import absolute_import
 %s
 """ % (fname, import_text)
-
-def DefStaticClass():
