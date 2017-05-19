@@ -104,16 +104,15 @@ footer_template = """    # function body
         raise TypeError('base must be CObjPtr or its derivatives')
     attrdict = {'__new__'  : staticmethod(__new__)%(elms1)s,
                 'p_'       : property(p_getter,p_setter,p_deleter)%(elms2)s}
-    return type(etypename, (base,), attrdict.copy())"""
+    return type(etypename, (base,), attrdict.copy())
+"""
 
-num_footer_params = { 'elms1' : '', 's_elm' : '' } 
+num_footer_params = { 'elms1' : '', 's_elm' : '', 'elms2' : ''} 
 char_footer_params = { 'elms1' : """,
                 '__init__' : __init__,
                 '__str__'  : __str__""",
                      'elms2' : """,
                 's_'       : property(s_getter,s_setter,s_deleter)""" }
-
-char_ptr_footer = footer_template % char_footer_params 
 
 cls_params = {
     'decl_top' : """cdef class %(clsname)s(%(base)s):
@@ -133,7 +132,8 @@ cls_params = {
     's_setter' : """@s_.setter
     def s_(self, val):""",
     's_deleter' : """@s_.deleter
-    def s_(self):"""}
+    def s_(self):""",
+    'footer' : ''}
 
 gen_params = {
     'decl_top' : """def gen_%(clsname)s(etypename, base):
@@ -142,7 +142,8 @@ gen_params = {
         ref = base.__new__(cls, vals, nelms, is_const, **m)""",
     'obj_ref' : 'ref',
     'return_pre' : '',
-    'init_args' : 'CObjPtr self, vals=None, int nelms=0, int is_const=False, **m',
+    'init_args' :
+            'CObjPtr self, vals=None, int nelms=0, int is_const=False, **m',
     'base' : 'base',
     'p_getter' : "def p_getter(CObjPtr self):",
     'p_setter' : "def p_setter(CObjPtr self, val):",
@@ -152,18 +153,12 @@ gen_params = {
     's_deleter' : "def s_deleter(CObjPtr self):" }
 
 charptr_params = {'ctype'  : 'char', 
-                         'clsname' : 'CCharPtr',  
-                         'defval' : 0,
-                         'base' : 'CObjPtr',
                          'cast_ord_c' : '<char>(<unsigned char>ord(c))',
                          'cast_c' : '<char>(<unsigned char>c)',
                          'cast_val' : 'val',
                          'cast_chptr' : '(<char*>chptr)' }
 
 ucharptr_params = {'ctype'  : 'unsigned char', 
-                         'clsname' : 'CUCharPtr',  
-                         'defval' : 0,
-                         'base' : 'CObjPtr',
                          'cast_ord_c' : '<unsigned char>ord(c)',
                          'cast_c' : '<unsigned char>(<char>c)',
                          'cast_val' : '<unsigned char*><char*>val',
@@ -192,3 +187,54 @@ def FileHeader(fname, import_text):
 from __future__ import absolute_import
 %s
 """ % (fname, import_text)
+
+def CharPtrStaticClsSrcStr(clsname='CCharPtr', defval=0,
+            base='CObjPtr', pyver=None):
+    params = charptr_params.copy() 
+    params['clsname'] = clsname
+    params['defval'] = defval
+    params['base'] = base
+    return (((common_template % char_template_param(pyver)) % cls_params)
+        % params)
+
+def UCharPtrStaticClsSrcStr(clsname='CUCharPtr', defval=0,
+            base='CObjPtr', pyver=None):
+    params = ucharptr_params.copy() 
+    params['clsname'] = clsname
+    params['defval'] = defval
+    params['base'] = base
+    return (((common_template % char_template_param(pyver)) % cls_params)
+        % params)
+
+def NumPtrStaticClsSrcStr(ctype, clsname, defval=0,
+            base='CObjPtr', pyver=None):
+    return (((common_template % num_template_param) % cls_params)
+        % {'ctype': ctype, 'clsname': clsname, 'defval': defval,
+           'base': base})
+
+def PtrClsDclStr(clsname, base='CObjPtr'):
+    return clsdcl_template % {'clsname': clsname, 'base': base} 
+
+def CharPtrDynamicClsSrcStr(clsname='CCharPtr', defval=0, pyver=None):
+    params = charptr_params.copy() 
+    params['clsname'] = clsname
+    params['defval'] = defval
+    gen_params_cptr = gen_params.copy()
+    gen_params_cptr['footer'] = footer_template % char_footer_params 
+    return (((common_template % char_template_param(pyver)) % gen_params_cptr)
+        % params)
+
+def UCharPtrDynamicClsSrcStr(clsname='CUCharPtr', defval=0, pyver=None):
+    params = ucharptr_params.copy() 
+    params['clsname'] = clsname
+    params['defval'] = defval
+    gen_params_cptr = gen_params.copy()
+    gen_params_cptr['footer'] = footer_template % char_footer_params 
+    return (((common_template % char_template_param(pyver)) % gen_params_cptr)
+        % params)
+
+def NumPtrDynamicClsSrcStr(ctype, clsname, defval=0, pyver=None):
+    gen_params_num = gen_params.copy()
+    gen_params_num['footer'] = footer_template % num_footer_params 
+    return (((common_template % num_template_param) % gen_params_num)
+        % {'ctype': ctype, 'clsname': clsname, 'defval': defval})
