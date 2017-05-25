@@ -5,7 +5,7 @@ CFLAGS	+= 	-I/usr/local/include/python2.7
 LDFLAGS +=	-L/usr/local/lib
 LIBS	+=	-lpython2.7
 
-COBJS    =  cobj.c numptr.c
+COBJS    =  cobj.c primptr.c
 
 .SUFFIXES: .pyx .pxd .so
 
@@ -18,20 +18,22 @@ COBJS    =  cobj.c numptr.c
 	    -Wl,-rpath,/usr/lib:/usr/local/lib \
 	    -fstack-protector $(LDFLAGS) $< $(LIBS) -o $@
 
-all: cobj.so numptr.so
+all: cobj.so primptr.so genprimptr.so
 
 cobj.c : cobj.pyx cobj.pxd
 
-numptr.pyx: ../cnumptrgen.py
-	python ../cnumptrgen.py
+primptr.pyx primptr.pxd genprimptr.pyx: ../primptrgen.py generator.py
+	$(PYTHON) ../primptrgen.py
 
-numptr.c : numptr.pyx
+primptr.c : primptr.pyx primptr.pxd
+
+genprimptr.c : genprimptr.pyx
 
 cleanobj:
-	-rm ${COBJS} *.o numptr.pyx
+	-rm ${COBJS} *.o *.pyc primptr.pxd primptr.pyx genprimptr.pyx
 
 clean:
-	-rm ${COBJS} *.so *.o *.pyc numptr.pyx
+	-rm ${COBJS} *.so *.o *.pyc primptr.pxd primptr.pyx genprimptr.pyx
 
 clean-extra:
 	-rm -rf ../MANIFEST ../build ../dist 

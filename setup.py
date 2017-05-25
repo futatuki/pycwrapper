@@ -24,14 +24,15 @@ class pre_build(Command):
     def finalize_options(self):
         return
     def run(self):
-        os.system('cd cwrapper;make numptr.pyx') 
+        os.system('cd cwrapper;make primptr.pyx primptr.pxd genprimptr.pyx') 
 
 extensions = [
     Extension('cwrapper.cobj',['cwrapper/cobj.pyx']),
-    Extension('cwrapper.numptr',['cwrapper/numptr.pyx'])]
+    Extension('cwrapper.primptr',['cwrapper/primptr.pyx']),
+    Extension('cwrapper.genprimptr',['cwrapper/genprimptr.pyx'])]
 
 setup(name='cwrapper',
-    version='0.98',
+    version='0.98.2',
     description= 'Base Class to help writing wrapper for pointer of '
                     'C structure with Cython',
     author='Yasuhito FUTATSUKI',
