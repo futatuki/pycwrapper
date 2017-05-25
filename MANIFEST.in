@@ -1,7 +1,7 @@
 # $yfId$
 include LICENSE
 include MANIFEST.in
-include cnumptrgen.py
+include primptrgen.py
 include cwrapper/Makefile
 include cwrapper/cobj.pyx
 include cwrapper/__init__.pxd
