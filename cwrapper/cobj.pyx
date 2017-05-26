@@ -8,7 +8,6 @@ IF (    UNAME_SYSNAME == 'Linux'  or UNAME_SYSNAME == 'FreeBSD'
 ELSE:
     from lib.string cimport memset
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
-from cpython.version cimport PY_MAJOR_VERSION
 import weakref
 
 cdef object ptr_to_bytes(void *ptr):
@@ -17,8 +16,7 @@ cdef object ptr_to_bytes(void *ptr):
     return s[:sizeof(void*)]
 cdef void * bytes_to_ptr(object bptr):
     cdef char * s
-    if ( (PY_MAJOR_VERSION < 3 and isinstance(bptr, str))
-            or (PY_MAJOR_VERSION >= 3 and isinstance(bptr, bytes)) ):
+    if isinstance(bptr, bytes):
         s = bptr
         return (<void **>s)[0]
     else:
