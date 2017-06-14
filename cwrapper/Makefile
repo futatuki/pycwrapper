@@ -5,7 +5,7 @@ CFLAGS	+= 	-I/usr/local/include/python2.7
 LDFLAGS +=	-L/usr/local/lib
 LIBS	+=	-lpython2.7
 
-COBJS    =  cobj.c primptr.c
+COBJS    =  cobj.c primptr.c genprimptr.c
 
 .SUFFIXES: .pyx .pxd .so
 

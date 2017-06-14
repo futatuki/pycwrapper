@@ -49,6 +49,8 @@ cdef class CObjPtr(object):
 #    cdef dict _madict
 #    cdef list _py_vals
 #    cdef object __weakref__
+    # C type name to wrapper dict
+    _typedict = {'void': CObjPtr}
     # for custom argments of constructer
     _copts = {}
     def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):
