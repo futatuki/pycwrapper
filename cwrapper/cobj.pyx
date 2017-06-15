@@ -78,17 +78,17 @@ cdef class CObjPtr(object):
         assert self._c_ptr is NULL
         dv = self._mddict.copy()
         for k in m:
-            if self._opts.has_key(k):
+            if k in self._opts:
                 self._opts[k] = m[k]
-            elif dv.has_key(k): 
+            elif k in dv: 
                 dv[k] = m[k]
-            elif self._madict.has_key(k):
+            elif k in self._madict:
                 if isinstance(list, self._madict[k]):
                     for ak in self._madict[k]:
-                        if dv.has_key(ak):
+                        if ak in dv:
                             del dv[self._madict[ak]]
                 else:
-                    if dv.has_key(self._madict[k]):
+                    if self._madict[k] in dv:
                         del dv[self._madict[k]]
                 dv[k] = m[k]
             else:
@@ -214,8 +214,8 @@ cdef class CObjPtr(object):
                ref.__setattr__(k, self._mddict[k])
         elif isinstance(val, dict):
             for k in val:
-                if ( not self._mddict.has_key(k)
-                        and not self._madict.has_key(k) ):
+                if ( not k in self._mddict
+                        and not k in self._madict ):
                     raise TypeError('Unknown member %s' % k)
             for k in val:
                 ref.__setattr__(k, val[k])

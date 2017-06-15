@@ -36,6 +36,7 @@ clean:
 	-rm ${COBJS} *.so *.o *.pyc primptr.pxd primptr.pyx genprimptr.pyx
 
 clean-extra:
-	-rm -rf ../MANIFEST ../build ../dist 
+	-rm -rf __pycache__ ../MANIFEST ../build ../dist ../__pycache__ \
+		../*.pyc 
 
 distclean: clean clean-extra
