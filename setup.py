@@ -10,6 +10,7 @@ from Cython.Distutils.extension import Extension
 from Cython.Distutils import build_ext
 from distutils.command.build import build as _build
 from distutils.cmd import Command
+import primptrgen
 
 class build(_build):
     sub_commands = [('pre_build', None)] + _build.sub_commands
@@ -24,7 +25,7 @@ class pre_build(Command):
     def finalize_options(self):
         return
     def run(self):
-        os.system('cd cwrapper;make primptr.pyx primptr.pxd genprimptr.pyx') 
+        primptrgen.main()
 
 extensions = [
     Extension('cwrapper.cobj',['cwrapper/cobj.pyx']),

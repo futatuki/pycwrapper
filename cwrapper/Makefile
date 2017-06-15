@@ -5,7 +5,7 @@ CFLAGS	+= 	-I/usr/local/include/python2.7
 LDFLAGS +=	-L/usr/local/lib
 LIBS	+=	-lpython2.7
 
-COBJS    =  cobj.c primptr.c
+COBJS    =  cobj.c primptr.c genprimptr.c
 
 .SUFFIXES: .pyx .pxd .so
 
@@ -36,6 +36,7 @@ clean:
 	-rm ${COBJS} *.so *.o *.pyc primptr.pxd primptr.pyx genprimptr.pyx
 
 clean-extra:
-	-rm -rf ../MANIFEST ../build ../dist 
+	-rm -rf __pycache__ ../MANIFEST ../build ../dist ../__pycache__ \
+		../*.pyc 
 
 distclean: clean clean-extra
