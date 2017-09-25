@@ -33,7 +33,7 @@ extensions = [
     Extension('cwrapper.genprimptr',['cwrapper/genprimptr.pyx'])]
 
 setup(name='cwrapper',
-    version='0.98.2',
+    version='0.98.3',
     description= 'Base Class to help writing wrapper for pointer of '
                     'C structure with Cython',
     author='Yasuhito FUTATSUKI',

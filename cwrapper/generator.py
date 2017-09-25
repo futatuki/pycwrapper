@@ -5,7 +5,7 @@ import os
 
 #
 # common code template for static/dynamic class
-# 
+#
 common_template = """%%(decl_top)s
         cdef object c_base
         c_base = (b'const ' if is_const else b'') + b'%%%%(ctype)s'
@@ -43,21 +43,22 @@ def char_template_param(pyver=None):
         cdef void * tmp_ptr
         cdef object tmp_vals
         cdef bytes bytes_vals
-        if isinstance(vals, bytes) or isinstance(vals, unicode):
-            bytes_vals = vals if isinstance(vals, bytes) else vals.encode()
+        if isinstance(val, bytes) or isinstance(val, unicode):
+            bytes_vals = val if isinstance(val, bytes) else val.encode()
             if is_const and nelms == 0:
-                self._py_vals = [{ 's_': bytes_vals }] + ([{}] * len(vals))
+                self._py_vals = [{ 's_': bytes_vals }] + ([{}] * len(val))
                 tmp_ptr = <void*><char*>bytes_vals
-                self.bind(tmp_ptr, len(bytes_vals) + 1, 0, vals, self._py_vals)
+                self.bind(tmp_ptr, len(bytes_vals) + 1, 0, val, self._py_vals)
             else:
                 tmp_vals = [ {'p_': """ + (
-                    '%%(cast_ord_c)s' if pyver < 3 else '%%(cast_c)s') + """ } 
+                    '%%(cast_ord_c)s' if pyver < 3 else '%%(cast_c)s') + """ }
                                     for c in bytes_vals ] + [ {'p_' : 0 } ]
-                %(base)s.__init__(self, vals=tmp_vals, nelms=nelms,
-                        is_const=is_const, **m)
+                %(base)s.__init__(self, val=val, is_const=is_const,
+                        vals=tmp_vals, nelms=nelms, **m)
         else:
             %(base)s.__init__(
-                    self, vals=vals, nelms=nelms, is_const=is_const, **m)
+                    self, val=val, is_const=is_const, vals=vals, nelms=nelms,
+                    **m)
     def __str__(self):
             return self.s_""",
     'ex_props' : """
@@ -102,7 +103,7 @@ def char_template_param(pyver=None):
 footer_template = """    # function body
     if not issubclass(base, CObjPtr):
         raise TypeError('base must be CObjPtr or its derivatives')
-    if '%%(ctype)s' in base._typedict and not force_register: 
+    if '%%(ctype)s' in base._typedict and not force_register:
         return base._typedict['%%(ctype)s']
     attrdict = {'__new__'  : staticmethod(__new__)%(elms1)s,
                 'p_'       : property(p_getter,p_setter,p_deleter)%(elms2)s}
@@ -111,7 +112,7 @@ footer_template = """    # function body
     return nc
 """
 
-num_footer_params = { 'elms1' : '', 's_elm' : '', 'elms2' : ''} 
+num_footer_params = { 'elms1' : '', 's_elm' : '', 'elms2' : ''}
 char_footer_params = { 'elms1' : """,
                 '__init__' : __init__,
                 '__str__'  : __str__""",
@@ -121,10 +122,12 @@ char_footer_params = { 'elms1' : """,
 cls_params = {
     'decl_top' : """cdef class %(clsname)s(%(base)s):
     %(base)s._typedict['%(ctype)s'] = %(clsname)s
-    def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):""",
+    def __cinit__(self, val=None, int is_const=False, vals=None,
+            int nelms=0, **m):""",
     'obj_ref' : 'self',
     'return_pre' : '# ',
-    'init_args' : 'self, vals=None, int nelms=0, int is_const=False, **m',
+    'init_args' : """self, val=None, int is_const=False, vals=None,
+            int nelms=0, **m""",
     'base' : '%(base)s',
     'p_getter' : """@property
     def p_(self):""",
@@ -143,13 +146,15 @@ cls_params = {
 gen_params = {
     'decl_top' : """def gen_%(clsname)s(etypename, base, force_register=False):
     cdef type nc
-    def __new__(cls, vals=None, nelms=0, is_const=False, **m):
+    def __new__(cls, val=None, is_const=False, vals=None, nelms=0, **m):
         cdef CObjPtr ref
-        ref = base.__new__(cls, vals, nelms, is_const, **m)""",
+        ref = base.__new__(cls=cls, val=val, is_const=is_const,
+            vals=vals, nelms=nelms, **m)""",
     'obj_ref' : 'ref',
     'return_pre' : '',
     'init_args' :
-            'CObjPtr self, vals=None, int nelms=0, int is_const=False, **m',
+            """CObjPtr self, val=None, int is_const=False, vals=None,
+            int nelms=0, **m""",
     'base' : 'base',
     'p_getter' : "def p_getter(CObjPtr self):",
     'p_setter' : "def p_setter(CObjPtr self, val):",
@@ -158,13 +163,13 @@ gen_params = {
     's_setter' : "def s_setter(CObjPtr self, val):",
     's_deleter' : "def s_deleter(CObjPtr self):" }
 
-charptr_params = {'ctype'  : 'char', 
+charptr_params = {'ctype'  : 'char',
                          'cast_ord_c' : '<char>(<unsigned char>ord(c))',
                          'cast_c' : '<char>(<unsigned char>c)',
                          'cast_val' : 'val',
                          'cast_chptr' : '(<char*>chptr)' }
 
-ucharptr_params = {'ctype'  : 'unsigned char', 
+ucharptr_params = {'ctype'  : 'unsigned char',
                          'cast_ord_c' : '<unsigned char>ord(c)',
                          'cast_c' : '<unsigned char>c',
                          'cast_val' : '<unsigned char*><char*>val',
@@ -198,7 +203,7 @@ def FileHeader(fname, import_text, pyver=None):
 
 def CharPtrStaticClsSrcStr(clsname='CCharPtr', defval=0,
             base='CObjPtr', pyver=None):
-    params = charptr_params.copy() 
+    params = charptr_params.copy()
     params['clsname'] = clsname
     params['defval'] = defval
     params['base'] = base
@@ -207,7 +212,7 @@ def CharPtrStaticClsSrcStr(clsname='CCharPtr', defval=0,
 
 def UCharPtrStaticClsSrcStr(clsname='CUCharPtr', defval=0,
             base='CObjPtr', pyver=None):
-    params = ucharptr_params.copy() 
+    params = ucharptr_params.copy()
     params['clsname'] = clsname
     params['defval'] = defval
     params['base'] = base
@@ -221,29 +226,29 @@ def NumPtrStaticClsSrcStr(ctype, clsname, defval=0,
            'base': base})
 
 def PtrClsDclStr(clsname, base='CObjPtr'):
-    return clsdcl_template % {'clsname': clsname, 'base': base} 
+    return clsdcl_template % {'clsname': clsname, 'base': base}
 
 def CharPtrDynamicClsSrcStr(clsname='CCharPtr', defval=0, pyver=None):
-    params = charptr_params.copy() 
+    params = charptr_params.copy()
     params['clsname'] = clsname
     params['defval'] = defval
     gen_params_cptr = gen_params.copy()
-    gen_params_cptr['footer'] = footer_template % char_footer_params 
+    gen_params_cptr['footer'] = footer_template % char_footer_params
     return (((common_template % char_template_param(pyver)) % gen_params_cptr)
         % params)
 
 def UCharPtrDynamicClsSrcStr(clsname='CUCharPtr', defval=0, pyver=None):
-    params = ucharptr_params.copy() 
+    params = ucharptr_params.copy()
     params['clsname'] = clsname
     params['defval'] = defval
     gen_params_cptr = gen_params.copy()
-    gen_params_cptr['footer'] = footer_template % char_footer_params 
+    gen_params_cptr['footer'] = footer_template % char_footer_params
     return (((common_template % char_template_param(pyver)) % gen_params_cptr)
         % params)
 
 def NumPtrDynamicClsSrcStr(ctype, clsname, defval=0):
     gen_params_num = gen_params.copy()
-    gen_params_num['footer'] = footer_template % num_footer_params 
+    gen_params_num['footer'] = footer_template % num_footer_params
     return (((common_template % num_template_param) % gen_params_num)
         % {'ctype': ctype, 'clsname': clsname, 'defval': defval})
 

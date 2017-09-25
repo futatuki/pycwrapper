@@ -37,6 +37,6 @@ clean:
 
 clean-extra:
 	-rm -rf __pycache__ ../MANIFEST ../build ../dist ../__pycache__ \
-		../*.pyc 
+		../*.pyc
 
 distclean: clean clean-extra

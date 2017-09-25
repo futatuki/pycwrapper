@@ -30,7 +30,8 @@ def PtrValueToCObj(val, type objtype=CObjPtr,
     cdef CObjPtr obj
     if not issubclass(objtype, CObjPtr):
         raise TypeError('objtype must be CObjPtr or its derivatives')
-    obj = objtype.__new__(objtype, vals=None, nelms=nelms, is_const=is_const)
+    obj = objtype.__new__(objtype, val=None, is_const=is_const,
+            vals=None, nelms=nelms)
     obj.bind(bytes_to_ptr(val), nelms, 0, entity_obj, [{}] * nelms)
     return obj
 
@@ -53,7 +54,8 @@ cdef class CObjPtr(object):
     _typedict = {'void': CObjPtr}
     # for custom argments of constructer
     _copts = {}
-    def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):
+    def __cinit__(self, val=None, int is_const=False, vals=None,
+            int nelms=0, **m):
         self._c_ptr = NULL
         self._is_const = is_const
         self._is_init = False
@@ -70,17 +72,18 @@ cdef class CObjPtr(object):
         self._mddict = {}
         self._madict = {}
         self._py_vals = [{}]
-    def __init__(self, vals=None, nelms=0, int is_const=False, **m):
+    def __init__(self, val=None, int is_const=False, vals=None,
+            int nelms=0, **m):
         cdef void *tmp_ptr
         cdef int i
         cdef CObjPtr ref
-        cdef nl
+        cdef int nl
         assert self._c_ptr is NULL
-        dv = self._mddict.copy()
+        dv = val if val is not None else self._mddict.copy()
         for k in m:
             if k in self._opts:
                 self._opts[k] = m[k]
-            elif k in dv: 
+            elif k in dv:
                 dv[k] = m[k]
             elif k in self._madict:
                 if isinstance(list, self._madict[k]):
@@ -93,22 +96,15 @@ cdef class CObjPtr(object):
                 dv[k] = m[k]
             else:
                 raise TypeError('Unknown member %s' % k)
-        if nelms == 0:
-            if vals is None:
-                raise ValueError(
-                    'nelms is number of allocation units, '
-                    'so it must greater than 0')
-            else:
-                try:
-                    nl = len(vals)
-                except TypeError:
-                    raise TypeError(
-                        'vals must be sequence type of elements values')
-            if nl == 0:
-                raise ValueError(
-                    'no values to initialize')
-        else:
+        if nelms:
             nl = nelms
+        else:
+            if vals is not None:
+                nl = len(vals)
+                if nl == 0:
+                    nl = 1
+            else:
+                nl = 1
         self.__class__._allocate(self, nl)
         self._nelms = nl
         self._nth = 0
@@ -131,13 +127,12 @@ cdef class CObjPtr(object):
                     raise TypeError(
                         'vals must be iterable of values to set elements')
                 i = 0
-                for val in vals:
+                for v in vals:
                     if i >= nl:
                         break
-                    if val is None:
-                        self[i] = dv
-                    else:
-                        self[i] = val
+                    if v is None:
+                        v = dv
+                    self[i] = v
                     i = i + 1
                 while i < nl:
                     self[i] = dv
@@ -156,24 +151,24 @@ cdef class CObjPtr(object):
         #
     #
     def __richcmp__(CObjPtr self, b, op):
-        if op == 0:  
+        if op == 0:
             return super.__lt__(b)
         if op == 1:
             if isinstance(b, CObjPtr):
-                return (  (    self._c_base_type == b._c_base_type 
+                return (  (    self._c_base_type == b._c_base_type
                            and self._c_ptr == (<CObjPtr>b)._c_ptr)
                         or super.__lt__(b) )
             else:
                 return super.__lt__(b)
         if op == 2:
             if isinstance(b, CObjPtr):
-                return (    self._c_base_type == b._c_base_type 
+                return (    self._c_base_type == b._c_base_type
                         and self._c_ptr == (<CObjPtr>b)._c_ptr)
             else:
                 return False
         if op == 3:
             if isinstance(b, CObjPtr):
-                return not (    self._c_base_type == b._c_base_type 
+                return not (    self._c_base_type == b._c_base_type
                             and self._c_ptr == (<CObjPtr>b)._c_ptr)
             else:
                 return True
@@ -181,8 +176,8 @@ cdef class CObjPtr(object):
             return super.__gt__(b)
         if op == 5:
             if isinstance(b, CObjPtr):
-                return (  (    self._c_base_type == b._c_base_type 
-                           and self._c_ptr == (<CObjPtr>b)._c_ptr) 
+                return (  (    self._c_base_type == b._c_base_type
+                           and self._c_ptr == (<CObjPtr>b)._c_ptr)
                         or super.__gt__(b) )
             else:
                 return super.__gt__(b)
@@ -311,7 +306,8 @@ cdef class CObjPtr(object):
         cls._allocater_method[0] = (allocater, deallocater)
 
 cdef class CPtrPtr(CObjPtr):
-    def __cinit__(self, vals=None, int nelms=0, int is_const=False, **m):
+    def __cinit__(self, val=None, int is_const=False, vals=None,
+            int nelms=0, **m):
         cdef object base_type_name
         self._is_const     = is_const
         #self._ptr_class    = CObjPtr
@@ -377,18 +373,18 @@ cdef class CPtrPtr(CObjPtr):
         (<void**>(self._c_ptr))[0] = NULL
 
 cdef genPtrClass(type base_class, int base_is_const=False):
-    def __new__(cls, vals=None, int nelms=0, int is_const=False, **m):
+    def __new__(cls, val=None, int is_const=False, vals=None,
+                int nelms=0, **m):
         cdef object base_type_name
         cdef CPtrPtr ref
-        ref = CPtrPtr.__new__(cls)
-        ref._is_const     = is_const
+        ref = CPtrPtr.__new__(cls, is_const=is_const)
         ref._ptr_class    = base_class
         ref._ptr_is_const = base_is_const
         base_type_name = (
                base_class.__new__(base_class,
                                is_const=base_is_const)._c_base_type
                + (b' const *' if is_const else b'*'))
-        # base_type_name is a temporary for this function, so keep reference 
+        # base_type_name is a temporary for this function, so keep reference
         ref._b_base_type = <bytes>base_type_name
         ref._c_base_type = base_type_name
         ref._c_esize = sizeof(void *)
@@ -422,7 +418,7 @@ def gen_enum(etypename, valuedict, defaultvalue,
     if attrdict is None:
         _attrdict = {}
     elif isinstance(attrdict, dict):
-        _attrdict = attrdict.copy() 
+        _attrdict = attrdict.copy()
     else:
         raise TypeError('attrdict should be a dict')
     for vdkey in valuedict.keys():
