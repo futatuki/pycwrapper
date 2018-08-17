@@ -1,0 +1,7 @@
+MANIFEST.in filter=expandkw
+cwrapper/generator.py filter=expandkw
+cwrapper/cobj.pxd filter=expandkw
+cwrapper/cobj.pyx filter=expandkw
+primptrgen.py filter=expandkw
+setup.py filter=expandkw
+
