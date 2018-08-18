@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# $Id: expandkw.py bc37aaa 2018-08-18 20:49:40Z <futatuki@yf.bsdclub.org> $
+#
 # Copyright (c) 2018, Yasuhito FUTASUKI
 # All rights reserved.
 #
@@ -35,7 +37,31 @@ import re
 import datetime
 
 # temporary, read setting as a module
-import kw_conf
+_default_kw = { 'Date'               : '%D',
+                'LastChangeDate'     : '%D',
+                'Revision'           : '%r',
+                'LastChangeRevision' : '%r',
+                'Rev'                : '%r',
+                'Author'             : '%a',
+                'LastChangedBy'      : '%a',
+                'HeadURL'            : '%u',
+                'URL'                : '%u',
+                'Id'                 : '%I',
+                'Header'             : '%H'}
+
+try:
+    import kw_conf
+    try:
+        default_kw = kw_conf.default_kw
+    except AttributeError:
+        default_kw = _default_kw
+    try:
+        custom_kw = kw_conf.custom_kw
+    except AttributeError:
+        custom_kw = {}
+except ImportError:
+    default_kw = _default_kw
+    custom_kw = {}
 
 #
 # absorb Python 2 incompatibilities
@@ -169,7 +195,8 @@ _f = { 'a' : (lambda pt, gd: '<' + gd['ae'] + '>'),
        'P' : (lambda pt, gd: os.path.join(gd['gp'], pt)),
        'r' : (lambda pt, gd: gd['H'][0:7]),
        'R' : (lambda pt, gd: gd['gt']),
-       'u' : (lambda pt, gd: os.path.join(gd['gt'], gd['gp'], pt)),
+       'u' : (lambda pt, gd:
+                'file:///' + os.path.join(gd['gt'], gd['gp'], pt)),
        '_' : (lambda pt, gd: ' '),
        '%' : (lambda pt, gd: '%'),
        'H' : (lambda pt, gd:
@@ -283,23 +310,11 @@ def unsubstkw(ist, ost, kwdict):
         ost.write('$'.join(oelms))
     return
 
-_default_kw = { 'Date'               : '%D',
-                'LastChangeDate'     : '%D',
-                'Revision'           : '%r',
-                'LastChangeRevision' : '%r',
-                'Rev'                : '%r',
-                'Author'             : '%a',
-                'LastChangedBy'      : '%a',
-                'HeadURL'            : '%u',
-                'URL'                : '%u',
-                'Id'                 : '%I',
-                'Header'             : '%H'}
-
 def read_conf(path):
     try:
-        return kw_conf.custom_kw[path]
+        return custom_kw[path]
     except KeyError:
-        return _default_kw
+        return default_kw
 
 def expand_kwdic(path, kwdic):
     gldic = get_git_log_attrs(path)
