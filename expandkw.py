@@ -161,7 +161,7 @@ def get_git_log_attrs(path, isfilter=True):
         arg  += [b'--', path]
     elif isinstance(path, str):
         arg  += [b'--', path.encode()]
-    elif isinstance(paths, PathLike):
+    elif isinstance(path, PathLike):
         p = path.__fspath__()
         if isinstance(p, bytes):
             arg += [b'--', p]
@@ -172,7 +172,7 @@ def get_git_log_attrs(path, isfilter=True):
             raise AttributeError('unknown PathLike object {0}'.format(repr(p)))
     op = subprocess.check_output(arg)
     if not op:
-        raise NoLog
+        raise NoLog("cannot find log: {}".format(repr(path)))
     gldic = dict(zip(['H', 'an', 'ae', 'ai', 'cn', 'ce', 'ci', 's'],
                       map(_norm, re.split(b'\0', op[:-1]))))
     gldic['ad'] = parse_iso8601(gldic['ai'])
