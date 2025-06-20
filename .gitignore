@@ -1,4 +1,12 @@
-*.pyc
-*.pyo
-MANIFEST
-dist
+/**/*.pyc
+/**/*.pyo
+/**/__pycache__
+/cwrapper/cobj.c
+/cwrapper/genprimptr.c
+/cwrapper/primptr.c
+/cwrapper/primptr.pyx
+/cwrapper/primptr.pxd
+/cwrapper/genprimptr.pyx
+/MANIFEST
+/dist
+/build
