@@ -1,12 +1,6 @@
 # $yfId$
 from libc.stddef cimport size_t
-IF (    UNAME_SYSNAME == 'Linux'  or UNAME_SYSNAME == 'FreeBSD'
-     or UNAME_SYSNAME == 'NetBSD' or UNAME_SYSNAME == 'OpenBSD'
-     or UNAME_SYSNAME == 'Darwin' ):
-    cdef extern from "strings.h":
-        void bzero(void *b, size_t len)
-ELSE:
-    from lib.string cimport memset
+from posix.strings cimport bzero
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 import weakref
 
@@ -279,12 +273,7 @@ cdef class CObjPtr(object):
         tmp_ptr = PyMem_Malloc(obj._c_esize * n)
         if tmp_ptr is NULL:
             raise MemoryError()
-        IF (    UNAME_SYSNAME == 'Linux'  or UNAME_SYSNAME == 'FreeBSD'
-             or UNAME_SYSNAME == 'NetBSD' or UNAME_SYSNAME == 'OpenBSD'
-             or UNAME_SYSNAME == 'Darwin' ):
-            bzero(tmp_ptr, obj._c_esize * n)
-        ELSE:
-            memset(tmp_ptr, 0, obj._c_esize * n)
+        bzero(tmp_ptr, obj._c_esize * n)
         obj._c_ptr = tmp_ptr
     @staticmethod
     def _default_deallocater(CObjPtr obj):
